@@ -2030,9 +2030,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     }
   }
 
-  // ---- draggable Compressor / Bass Protect transfer-curve widgets (AutoFilter-
-  // style: drag the knee point to set Threshold, drag the top point to set
-  // Ratio). x-axis = input level -40..0dB, y-axis = output level -40..0dB. ----
+  // ---- draggable Compressor / Bass Protect transfer-curve widgets: drag the
+  // knee point to set Threshold, drag the top point to set Ratio. x-axis =
+  // input level -40..0dB, y-axis = output level -40..0dB. ----
   const COMP_CURVES = [
     { prefix:'comp', threshKey:'thresh', ratioKey:'ratio', svgId:'compCurveSvg' },
     { prefix:'bass', threshKey:'bassThresh', ratioKey:'bassRatio', svgId:'bassCurveSvg' },
