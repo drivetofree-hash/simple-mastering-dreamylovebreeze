@@ -1062,10 +1062,10 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         </div>
         <div class="note" style="margin-top:6px;" data-i18n="eqCurveHint">Drag the three dots on the spectrum to set Low Shelf / Mid Peak / High Shelf directly — the Mixing Desk numbers below move with them.</div>
         <div class="spectrum-legend">
-          <div class="legend-item"><span class="legend-swatch" style="background:rgba(79,214,196,0.95);"></span>Normal — smoothly balanced against the surrounding frequencies</div>
-          <div class="legend-item"><span class="legend-swatch" style="background:rgba(242,165,65,0.95);"></span>Mild bump — a moderate peak standing out from its neighbors</div>
-          <div class="legend-item"><span class="legend-swatch" style="background:rgba(239,83,80,0.95);"></span>Sharp resonance — a narrow spike likely to sound "clumped" or ringy</div>
-          <div class="legend-item"><span class="legend-swatch" style="background:rgba(242,165,65,0.28); border:1px solid rgba(242,165,65,0.6);"></span>Shaded zone (3.5–12kHz) — background tint matches the Spectral Harshness score</div>
+          <div class="legend-item"><span class="legend-swatch" style="background:rgba(79,214,196,0.95);"></span><span data-i18n="legendNormal">Normal — smoothly balanced against the surrounding frequencies</span></div>
+          <div class="legend-item"><span class="legend-swatch" style="background:rgba(242,165,65,0.95);"></span><span data-i18n="legendMildBump">Mild bump — a moderate peak standing out from its neighbors</span></div>
+          <div class="legend-item"><span class="legend-swatch" style="background:rgba(239,83,80,0.95);"></span><span data-i18n="legendSharpRes">Sharp resonance — a narrow spike likely to sound "clumped" or ringy</span></div>
+          <div class="legend-item"><span class="legend-swatch" style="background:rgba(242,165,65,0.28); border:1px solid rgba(242,165,65,0.6);"></span><span data-i18n="legendShadedZone">Shaded zone (3.5–12kHz) — background tint matches the Spectral Harshness score</span></div>
         </div>
       </div>
 
@@ -1098,7 +1098,15 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     </div>
 
       <div class="panel monitor-panel">
-        <div class="panel-title" data-i18n="panelLiveMonitor">Live Monitor</div>
+        <div class="panel-title" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <span data-i18n="panelLiveMonitor">Live Monitor</span>
+          <button class="dl-btn" id="popoutMonitorBtn" style="width:auto; padding:5px 10px; font-size:11px;" data-i18n="btnPopoutMonitor">⇱ Pop out</button>
+        </div>
+        <div id="monitorPanelBody">
+        <div class="mon-label" style="text-align:center;" data-i18n="monLiveSpectrum">Live Spectrum</div>
+        <div style="position:relative; height:110px; background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:8px; margin-bottom:16px; overflow:hidden;">
+          <canvas id="liveSpectrumCanvas" style="width:100%; height:100%; display:block;"></canvas>
+        </div>
         <div class="mon-label" style="text-align:center;" data-i18n="monTruePeak">Stereo True Peak</div>
         <div class="vmeter-row">
           <div class="vmeter">
@@ -1128,6 +1136,11 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
           <div class="mon-value big" id="monAvgLufs">—</div>
         </div>
         <div class="monitor-block">
+          <div class="mon-label" data-i18n="monLra">Loudness Range (LRA)</div>
+          <div class="mon-value big" id="monLra">—</div>
+          <div class="note" style="margin-top:4px;" data-i18n="monLraNote">How much the loudness varies through the track. Very low (roughly under 3 LU) often means it's been squashed flat by heavy compression/limiting.</div>
+        </div>
+        <div class="monitor-block">
           <div class="mon-label" data-i18n="monCorrelation">Correlation</div>
           <div class="corr-track"><div class="corr-center"></div><div class="corr-fill" id="corrFill"></div></div>
           <div class="corr-scale"><span>-1</span><span>0</span><span>+1</span></div>
@@ -1139,39 +1152,10 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
           <div class="corr-scale"><span>L</span><span>·</span><span>R</span></div>
           <div class="mon-value" id="balVal" style="text-align:center; margin-top:6px;">—</div>
         </div>
-        <div class="note" style="margin-top:2px;">Live while playing — same simplified BS.1770-style method as the summary panel, computed in real time. Treat as a rough live reference, not a certified meter.</div>
+        <div class="note" style="margin-top:2px;" data-i18n="liveMonitorNote">Live while playing — same simplified BS.1770-style method as the summary panel, computed in real time. Treat as a rough live reference, not a certified meter.</div>
+        </div>
+        <div id="monitorPoppedOutNote" class="note" style="display:none; text-align:center; padding:20px 0;" data-i18n="monPoppedOutNote">Popped out to a separate window — close that window to bring this panel back here.</div>
       </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-title" data-i18n="panelEnvelopeViewer">Envelope / Sustain Viewer</div>
-      <div class="note" style="margin-bottom:10px;" data-i18n="envViewerNote">Zooms into a short window and overlays a chosen frequency band's envelope (attack + decay shape) for Original vs Master — the same "did the sustain get chopped shorter" check used to diagnose over-compression by ear. Needs a Master (Run Mastering) to compare against.</div>
-      <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px;">
-        <label style="font-size:12.5px; color:var(--text-dim); display:flex; flex-direction:column; gap:4px;"><span data-i18n="envBandLabel">Band</span>
-          <select id="envBandSelect" style="background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:7px 9px; font-size:12.5px;">
-            <option value="low" data-i18n="envBandLow">Low (20–250 Hz)</option>
-            <option value="mid" data-i18n="envBandMid">Mid (250–4000 Hz)</option>
-            <option value="high" data-i18n="envBandHigh">High (4000 Hz+)</option>
-            <option value="full" data-i18n="envBandFull">Full Mix</option>
-          </select>
-        </label>
-        <label style="font-size:12.5px; color:var(--text-dim); display:flex; flex-direction:column; gap:4px;"><span data-i18n="envStartLabel">Start (s)</span>
-          <input type="number" id="envStart" value="20" min="0" step="1" style="width:70px; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:7px 9px; font-size:12.5px;">
-        </label>
-        <label style="font-size:12.5px; color:var(--text-dim); display:flex; flex-direction:column; gap:4px;"><span data-i18n="envDurLabel">Duration (s)</span>
-          <input type="number" id="envDur" value="10" min="1" max="60" step="1" style="width:70px; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:7px 9px; font-size:12.5px;">
-        </label>
-        <button class="dl-btn" id="envRenderBtn" style="width:auto; padding:9px 16px;" data-i18n="btnRenderEnvelope">📈 Render Envelope</button>
-      </div>
-      <div style="display:flex; gap:16px; font-size:11.5px; color:var(--text-dim); margin-bottom:6px;">
-        <span><span style="display:inline-block;width:10px;height:10px;background:rgba(79,214,196,0.9);border-radius:2px;margin-right:5px;"></span><span data-i18n="legendOriginal">Original</span></span>
-        <span><span style="display:inline-block;width:10px;height:10px;background:rgba(242,165,65,0.9);border-radius:2px;margin-right:5px;"></span><span data-i18n="legendMaster">Master</span></span>
-      </div>
-      <div style="position:relative; height:220px; background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:8px;">
-        <canvas id="envCanvas" style="width:100%; height:100%; display:block;"></canvas>
-        <div class="wave-empty" id="envEmpty" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:12.5px; text-align:center; padding:16px;" data-i18n="envEmptyHint">Pick a band/window and click Render Envelope. Each curve is normalized to its own peak — you're comparing decay SHAPE, not loudness.</div>
-      </div>
-      <div id="envStats" style="margin-top:10px; font-family:var(--mono); font-size:12px; color:var(--text-dim);"></div>
     </div>
 
     <div class="panel">
@@ -1181,6 +1165,11 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         <div class="band-card">
           <div class="band-title"><span data-i18n="bandLowShelf">Low Shelf</span> <span class="freq-tag" id="lowFreqTag">100 Hz</span></div>
           <div class="band-desc" data-i18n="descLowShelf">Boosts or cuts everything below the frequency you set. Raising it adds body/warmth; cutting it removes mud or rumble.</div>
+          <div class="comp-curve-wrap">
+            <svg id="lowCurveSvg" class="comp-curve-svg"></svg>
+            <span class="comp-curve-axis-label" style="left:4px; bottom:2px;">20Hz</span>
+            <span class="comp-curve-axis-label" style="right:4px; bottom:2px;">20kHz</span>
+          </div>
           <div class="prow">
             <div class="prow-head"><span class="lbl">Frequency</span><span class="num-input-group"><input class="num-input" type="number" id="lowFreqNum" step="1"><span class="unit-suffix">Hz</span></span></div>
             <input type="range" id="lowFreqSlider" min="20" max="1000" step="1" value="100">
@@ -1194,6 +1183,11 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         <div class="band-card">
           <div class="band-title"><span data-i18n="bandMidPeak">Mid Peak</span> <span class="freq-tag" id="midFreqTag">1000 Hz</span></div>
           <div class="band-desc" data-i18n="descMidPeak">Targets a narrow band around the frequency (width set by Q). Used to bring vocals forward or dial out boxy/harsh mids.</div>
+          <div class="comp-curve-wrap">
+            <svg id="midCurveSvg" class="comp-curve-svg"></svg>
+            <span class="comp-curve-axis-label" style="left:4px; bottom:2px;">20Hz</span>
+            <span class="comp-curve-axis-label" style="right:4px; bottom:2px;">20kHz</span>
+          </div>
           <div class="prow">
             <div class="prow-head"><span class="lbl">Frequency</span><span class="num-input-group"><input class="num-input" type="number" id="midFreqNum" step="10"><span class="unit-suffix">Hz</span></span></div>
             <input type="range" id="midFreqSlider" min="100" max="12000" step="10" value="1000">
@@ -1211,6 +1205,11 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         <div class="band-card">
           <div class="band-title"><span data-i18n="bandHighShelf">High Shelf</span> <span class="freq-tag" id="highFreqTag">8000 Hz</span></div>
           <div class="band-desc" data-i18n="descHighShelf">Boosts or cuts everything above the frequency you set. Raising it adds air/brightness; cutting it softens harshness or sibilance.</div>
+          <div class="comp-curve-wrap">
+            <svg id="highCurveSvg" class="comp-curve-svg"></svg>
+            <span class="comp-curve-axis-label" style="left:4px; bottom:2px;">20Hz</span>
+            <span class="comp-curve-axis-label" style="right:4px; bottom:2px;">20kHz</span>
+          </div>
           <div class="prow">
             <div class="prow-head"><span class="lbl">Frequency</span><span class="num-input-group"><input class="num-input" type="number" id="highFreqNum" step="100"><span class="unit-suffix">Hz</span></span></div>
             <input type="range" id="highFreqSlider" min="1000" max="20000" step="100" value="8000">
@@ -1218,6 +1217,29 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
           <div class="prow">
             <div class="prow-head"><span class="lbl">Gain</span><span class="num-input-group"><input class="num-input" type="number" id="highGainNum" step="0.1"><span class="unit-suffix">dB</span></span></div>
             <input type="range" id="highGainSlider" min="-6" max="9" step="0.1" value="0">
+          </div>
+        </div>
+
+        <div class="band-card">
+          <div class="band-title" data-i18n="bandSaturation">Saturation</div>
+          <div class="band-desc" data-i18n="descSaturation">Adds harmonic warmth/density with a soft-clip curve — an alternative to the Compressor for "fullness" that doesn't touch dynamics. Drive sets how hard the signal is pushed into the curve; Mix blends it back with the untouched dry signal (parallel saturation).</div>
+          <div class="comp-curve-wrap">
+            <svg id="satCurveSvg" class="comp-curve-svg"></svg>
+            <span class="comp-curve-axis-label" style="left:4px; bottom:2px;">in -1</span>
+            <span class="comp-curve-axis-label" style="right:4px; top:2px;">in +1</span>
+          </div>
+          <div class="note" style="margin:-4px 0 8px;" data-i18n="satCurveHint">Drag the point up/down to set Drive — the curve bends harder as it rises.</div>
+          <div class="prow">
+            <div class="prow-head"><span class="lbl" data-i18n="enableLabel">Enable</span></div>
+            <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim);"><input type="checkbox" id="satEnable" checked style="width:16px;height:16px;"> <span data-i18n="satEnableLabel">On — apply saturation</span></label>
+          </div>
+          <div class="prow">
+            <div class="prow-head"><span class="lbl">Drive</span><span class="num-input-group"><input class="num-input" type="number" id="satAmountNum" step="1"><span class="unit-suffix">%</span></span></div>
+            <input type="range" id="satAmountSlider" min="0" max="100" step="1" value="20">
+          </div>
+          <div class="prow">
+            <div class="prow-head"><span class="lbl">Mix</span><span class="num-input-group"><input class="num-input" type="number" id="satMixNum" step="1"><span class="unit-suffix">%</span></span></div>
+            <input type="range" id="satMixSlider" min="0" max="100" step="1" value="0">
           </div>
         </div>
 
@@ -1342,6 +1364,38 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     </div>
 
     <div class="panel">
+      <div class="panel-title" data-i18n="panelEnvelopeViewer">Envelope / Sustain Viewer</div>
+      <div class="note" style="margin-bottom:10px;" data-i18n="envViewerNote">Zooms into a short window and overlays a chosen frequency band's envelope (attack + decay shape) for Original vs Master — the same "did the sustain get chopped shorter" check used to diagnose over-compression by ear. Needs a Master (Run Mastering) to compare against.</div>
+      <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px;">
+        <label style="font-size:12.5px; color:var(--text-dim); display:flex; flex-direction:column; gap:4px;"><span data-i18n="envBandLabel">Band</span>
+          <select id="envBandSelect" style="background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:7px 9px; font-size:12.5px;">
+            <option value="low" data-i18n="envBandLow">Low (20–250 Hz)</option>
+            <option value="mid" data-i18n="envBandMid">Mid (250–4000 Hz)</option>
+            <option value="high" data-i18n="envBandHigh">High (4000 Hz+)</option>
+            <option value="full" data-i18n="envBandFull">Full Mix</option>
+          </select>
+        </label>
+        <label style="font-size:12.5px; color:var(--text-dim); display:flex; flex-direction:column; gap:4px;"><span data-i18n="envStartLabel">Start (s)</span>
+          <input type="number" id="envStart" value="20" min="0" step="1" style="width:70px; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:7px 9px; font-size:12.5px;">
+        </label>
+        <label style="font-size:12.5px; color:var(--text-dim); display:flex; flex-direction:column; gap:4px;"><span data-i18n="envDurLabel">Duration (s)</span>
+          <input type="number" id="envDur" value="10" min="1" max="60" step="1" style="width:70px; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:7px 9px; font-size:12.5px;">
+        </label>
+        <button class="dl-btn" id="envRenderBtn" style="width:auto; padding:9px 16px;" data-i18n="btnRenderEnvelope">📈 Render Envelope</button>
+      </div>
+      <div style="display:flex; gap:16px; font-size:11.5px; color:var(--text-dim); margin-bottom:6px;">
+        <span><span style="display:inline-block;width:10px;height:10px;background:rgba(79,214,196,0.9);border-radius:2px;margin-right:5px;"></span><span data-i18n="legendOriginal">Original</span></span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:rgba(242,165,65,0.9);border-radius:2px;margin-right:5px;"></span><span data-i18n="legendMaster">Master</span></span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--hot);border-radius:2px;margin-right:5px;"></span><span data-i18n="legendFlagged">Master diverges from Original here</span></span>
+      </div>
+      <div style="position:relative; height:220px; background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:8px;">
+        <canvas id="envCanvas" style="width:100%; height:100%; display:block;"></canvas>
+        <div class="wave-empty" id="envEmpty" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:12.5px; text-align:center; padding:16px;" data-i18n="envEmptyHint">Pick a band/window and click Render Envelope. Each curve is normalized to its own peak — you're comparing decay SHAPE, not loudness.</div>
+      </div>
+      <div id="envStats" style="margin-top:10px; font-family:var(--mono); font-size:12px; color:var(--text-dim);"></div>
+    </div>
+
+    <div class="panel">
       <div class="panel-title" data-i18n="panelEditHistory">Edit History</div>
       <div class="history-controls">
         <button class="dl-btn" id="undoBtn" style="width:auto; padding:9px 18px; background:var(--panel-2); color:var(--accent); border:1px solid var(--line);" disabled data-i18n="undoBtn">↩ Undo one step</button>
@@ -1357,9 +1411,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         <div class="analysis-card"><div class="ak" data-i18n="akTruePeak">True Peak</div><div class="av" id="sumPeak">Run Mastering to see this</div></div>
       </div>
       <div class="platform-list" id="platformList">
-        <div class="history-empty">Run Mastering to check this master against platform loudness targets.</div>
+        <div class="history-empty" data-i18n="platformListEmpty">Run Mastering to check this master against platform loudness targets.</div>
       </div>
-      <div class="note">Integrated LUFS uses a simplified ITU-R BS.1770 K-weighting approximation. True Peak is estimated via 4x oversampling. Treat both as close estimates, not certified measurements.</div>
+      <div class="note" data-i18n="lufsApproxNote">Integrated LUFS uses a simplified ITU-R BS.1770 K-weighting approximation. True Peak is estimated via 4x oversampling. Treat both as close estimates, not certified measurements.</div>
     </div>
 
     <div class="panel">
@@ -1371,7 +1425,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       </div>
       <button class="dl-btn run-mastering-btn" id="finalMasterBtn" data-i18n="finalMastering">🎯 Final Mastering</button>
       <div class="calibrate-warning hidden" id="calibrateWarning"></div>
-      <div class="note">Pick a preset above and Run Mastering first to hear the tonal character. Then pick a target here and hit Final Mastering — it nudges Makeup Gain (or Ratio/Ceiling for Louder) to land close to that loudness, re-renders, and updates the summary above.</div>
+      <div class="note" data-i18n="loudnessTargetNote">Pick a preset above and Run Mastering first to hear the tonal character. Then pick a target here and hit Final Mastering — it nudges Makeup Gain (or Ratio/Ceiling for Louder) to land close to that loudness, re-renders, and updates the summary above.</div>
     </div>
 
     <div class="panel">
@@ -1411,15 +1465,15 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         </div>
       </div>
       <div class="suggestion-list" id="suggestionList">
-        <div class="history-empty">Run Mastering to get concrete suggestions for reaching a streaming-safe loudness, or pushing louder without breaking balance.</div>
+        <div class="history-empty" data-i18n="suggestionListEmpty">Run Mastering to get concrete suggestions for reaching a streaming-safe loudness, or pushing louder without breaking balance.</div>
       </div>
       <button class="dl-btn" id="dlBtn" disabled style="margin-top:14px;">Download WAV (24-bit)</button>
-      <div class="note">All processing happens in your browser. Your file is never sent to a server. MP3 encoding is powered by the <a href="https://lame.sourceforge.net" target="_blank" rel="noopener" style="color:var(--accent);">LAME</a> encoder (lamejs port, LGPL-3.0), bundled directly in this file — no external requests needed.</div>
+      <div class="note" data-i18n-html="processingNoteHtml">All processing happens in your browser. Your file is never sent to a server. MP3 encoding is powered by the <a href="https://lame.sourceforge.net" target="_blank" rel="noopener" style="color:var(--accent);">LAME</a> encoder (lamejs port, LGPL-3.0), bundled directly in this file — no external requests needed.</div>
     </div>
 
   </div>
 
-  <div class="disclaimer">
+  <div class="disclaimer" data-i18n-html="disclaimerHtml">
     This is a real working <b>technical prototype</b>. The EQ, compressor, and limiter are genuinely processed with
     Web Audio API nodes, and the meters read real-time values. The signal analysis above is computed with actual
     DSP measurements (peak/RMS, band energy, stereo correlation) — not a trained ML model, so treat it as a rough
@@ -1439,15 +1493,40 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
 
   // nodes (built once ctx exists)
   let lowShelf, midPeak, highShelf, deHp, deLp, deComp, deSum, bassLp, bassHp, bassComp, bassSum, comp, makeup, limiter, dryGain, wetGain, analyser;
+  let satPreGain, satShaper, satPostGain, satDryGain, satWetGain, satSum;
   // mid-side stereo widener stage (between Makeup Gain and the Limiter)
   let widthSplitter, widthMidL, widthMidR, widthMid, widthSideL, widthSideR, widthSide, widthPos, widthNeg, widthMerger;
   // live-monitor-only tap: stereo split for true-peak, K-weighting chain for LUFS
   let monitorSum, monSplitter, analyserL, analyserR, kShelf, kHp, kAnalyser, silentSink;
 
+  // ---- Saturation: soft-clip WaveShaper for harmonic density/warmth as an
+  // alternative to leaning on the Compressor for "fullness". Two knobs: Drive
+  // (how hard the signal is pushed into the curve) and Mix (dry/wet blend, so
+  // it's parallel saturation — the untouched dry signal is always still there).
+  function buildSaturationCurve(amount){
+    const n = 1024;
+    const curve = new Float32Array(n);
+    const k = 0.3 + amount*9; // near-transparent at amount=0, increasingly hard soft-clip as amount rises
+    const norm = Math.tanh(k);
+    for(let i=0;i<n;i++){
+      const x = (i/(n-1))*2 - 1;
+      curve[i] = Math.tanh(k*x) / norm;
+    }
+    return curve;
+  }
+
   function initGraph(){
     lowShelf = audioCtx.createBiquadFilter(); lowShelf.type='lowshelf';
     midPeak = audioCtx.createBiquadFilter(); midPeak.type='peaking';
     highShelf = audioCtx.createBiquadFilter(); highShelf.type='highshelf';
+    satPreGain = audioCtx.createGain();
+    satShaper = audioCtx.createWaveShaper();
+    satShaper.oversample = '4x';
+    satShaper.curve = buildSaturationCurve(0.2);
+    satPostGain = audioCtx.createGain();
+    satDryGain = audioCtx.createGain();
+    satWetGain = audioCtx.createGain();
+    satSum = audioCtx.createGain();
     deHp = audioCtx.createBiquadFilter(); deHp.type='highpass'; deHp.Q.value=0.7;
     deLp = audioCtx.createBiquadFilter(); deLp.type='lowpass'; deLp.Q.value=0.7;
     deComp = audioCtx.createDynamicsCompressor();
@@ -1499,9 +1578,17 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     src.connect(lowShelf);
     lowShelf.connect(midPeak);
     midPeak.connect(highShelf);
+    // saturation: parallel soft-clip harmonic warmth, dry+wet blended by Mix
+    highShelf.connect(satDryGain);
+    highShelf.connect(satPreGain);
+    satPreGain.connect(satShaper);
+    satShaper.connect(satPostGain);
+    satPostGain.connect(satWetGain);
+    satDryGain.connect(satSum);
+    satWetGain.connect(satSum);
     // de-harsher: split at deHp/deLp crossover, compress only the high side, sum back
-    highShelf.connect(deHp);
-    highShelf.connect(deLp);
+    satSum.connect(deHp);
+    satSum.connect(deLp);
     deHp.connect(deComp);
     deComp.connect(deSum);
     deLp.connect(deSum);
@@ -1570,6 +1657,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     midPeak.Q.value = val('midQ');
     highShelf.frequency.value = val('highFreq');
     highShelf.gain.value = val('highGain');
+    const satAmount = val('satAmount')/100;
+    const satOn = document.getElementById('satEnable') ? document.getElementById('satEnable').checked : true;
+    const satMix = satOn ? val('satMix')/100 : 0;
+    satShaper.curve = buildSaturationCurve(satAmount);
+    satPreGain.gain.value = 1 + satAmount*2;
+    satPostGain.gain.value = 1/(1 + satAmount*0.6); // rough loudness-compensation for the extra drive gain
+    satDryGain.gain.value = 1 - satMix;
+    satWetGain.gain.value = satMix;
     deHp.frequency.value = val('deFreq');
     deLp.frequency.value = val('deFreq');
     deComp.threshold.value = val('deSens');
@@ -1595,6 +1690,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     updateIntensityGains();
     updateEqCurve();
     updateAllCompCurves();
+    updateAllEqCardCurves();
+    updateSatCurve();
   }
 
   // ---- interactive EQ curve on the spectrum: 3 draggable points synced with
@@ -1652,6 +1749,15 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     svg.appendChild(path);
 
     EQ_BANDS.forEach(band=>{
+      const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+      label.setAttribute('id','eqLabel_'+band.key);
+      label.setAttribute('font-family','var(--mono)');
+      label.setAttribute('font-size','10.5');
+      label.setAttribute('fill', band.color);
+      label.setAttribute('text-anchor','middle');
+      label.style.pointerEvents = 'none';
+      svg.appendChild(label);
+
       const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
       c.setAttribute('id', 'eqPoint_'+band.key);
       c.setAttribute('r', 6);
@@ -1705,7 +1811,223 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     EQ_BANDS.forEach((band,i)=>{
       const c = document.getElementById('eqPoint_'+band.key);
       if(c){ c.setAttribute('cx', pts[i].x); c.setAttribute('cy', pts[i].y); }
+      const label = document.getElementById('eqLabel_'+band.key);
+      if(label){
+        const freq = val(band.key+'Freq'), gain = val(band.key+'Gain');
+        const freqTxt = freq >= 1000 ? `${(freq/1000).toFixed(freq>=10000?0:1)}k` : `${Math.round(freq)}`;
+        label.textContent = `${freqTxt}Hz  ${gain>=0?'+':''}${gain.toFixed(1)}dB`;
+        // flip label above/below the point depending on where there's room, and
+        // clamp horizontally so it never gets clipped off the left/right edge
+        const labelY = pts[i].y < h*0.25 ? pts[i].y + 18 : pts[i].y - 12;
+        const labelX = Math.min(w-38, Math.max(38, pts[i].x));
+        label.setAttribute('x', labelX);
+        label.setAttribute('y', labelY);
+      }
     });
+  }
+
+  // ---- draggable per-band frequency-response curves, one inside each of the
+  // Low Shelf / Mid Peak / High Shelf cards (replaces the old draggable dots
+  // that used to live on the spectrum above — same idea, just moved so each
+  // band's curve/point sits right next to its own sliders). Uses the live
+  // BiquadFilterNode's own getFrequencyResponse() for an exact curve, not an
+  // approximation. ----
+  const EQ_MIN_F2 = 20, EQ_MAX_F2 = 20000, EQ_CARD_GAIN_RANGE = 12;
+  let eqCardDragging = null;
+  const EQ_CARD_CURVES = [
+    { key:'low',  freqKey:'lowFreq',  gainKey:'lowGain',  svgId:'lowCurveSvg',  getNode:()=>lowShelf },
+    { key:'mid',  freqKey:'midFreq',  gainKey:'midGain',  svgId:'midCurveSvg',  getNode:()=>midPeak },
+    { key:'high', freqKey:'highFreq', gainKey:'highGain', svgId:'highCurveSvg', getNode:()=>highShelf },
+  ];
+  function eqCardFreqToX(freq, w){ const f = Math.min(EQ_MAX_F2, Math.max(EQ_MIN_F2, freq)); return Math.log(f/EQ_MIN_F2) / Math.log(EQ_MAX_F2/EQ_MIN_F2) * w; }
+  function eqCardXToFreq(x, w){ const frac = Math.min(1, Math.max(0, x/w)); return EQ_MIN_F2 * Math.pow(EQ_MAX_F2/EQ_MIN_F2, frac); }
+  function eqCardGainToY(g, h){ const pad=8; const gg = Math.min(EQ_CARD_GAIN_RANGE, Math.max(-EQ_CARD_GAIN_RANGE, g)); return h/2 - (gg/EQ_CARD_GAIN_RANGE) * (h/2 - pad); }
+  function eqCardYToGain(y, h){ const pad=8; const norm = (h/2 - y) / (h/2 - pad || 1); return Math.min(EQ_CARD_GAIN_RANGE, Math.max(-EQ_CARD_GAIN_RANGE, norm * EQ_CARD_GAIN_RANGE)); }
+
+  function buildEqCardCurveSvg(cfg){
+    const svg = document.getElementById(cfg.svgId);
+    if(!svg) return;
+    svg.innerHTML = '';
+    const wrap = svg.parentElement;
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    if(w===0 || h===0) return;
+
+    const zeroLine = document.createElementNS('http://www.w3.org/2000/svg','line');
+    zeroLine.setAttribute('x1',0); zeroLine.setAttribute('x2',w);
+    zeroLine.setAttribute('y1',h/2); zeroLine.setAttribute('y2',h/2);
+    zeroLine.setAttribute('stroke','rgba(255,255,255,0.12)');
+    zeroLine.setAttribute('stroke-dasharray','3,3');
+    svg.appendChild(zeroLine);
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','polyline');
+    path.setAttribute('id', cfg.svgId+'_path');
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke','var(--accent)');
+    path.setAttribute('stroke-width','2');
+    svg.appendChild(path);
+
+    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('id', cfg.svgId+'_pt');
+    c.setAttribute('r', 6);
+    c.setAttribute('fill', 'var(--warn)');
+    c.setAttribute('stroke', '#0a0c10'); c.setAttribute('stroke-width', 1.5);
+    c.style.cursor = 'grab'; c.style.pointerEvents = 'auto';
+    c.addEventListener('pointerdown', e=>{
+      e.preventDefault();
+      eqCardDragging = cfg.svgId;
+      c.setPointerCapture(e.pointerId);
+      c.style.cursor = 'grabbing';
+    });
+    c.addEventListener('pointermove', e=>{
+      if(eqCardDragging !== cfg.svgId) return;
+      const rect = svg.getBoundingClientRect();
+      const x = Math.max(0, Math.min(rect.width, e.clientX-rect.left));
+      const y = Math.max(0, Math.min(rect.height, e.clientY-rect.top));
+      const freq = eqCardXToFreq(x, rect.width);
+      const gain = eqCardYToGain(y, rect.height);
+      const freqSlider = document.getElementById(cfg.freqKey+'Slider');
+      const gainSlider = document.getElementById(cfg.gainKey+'Slider');
+      freqSlider.value = Math.round(freq);
+      freqSlider.dispatchEvent(new Event('input'));
+      gainSlider.value = gain.toFixed(1);
+      gainSlider.dispatchEvent(new Event('input'));
+    });
+    const endDrag = ()=>{ if(eqCardDragging===cfg.svgId){ eqCardDragging=null; c.style.cursor='grab'; } };
+    c.addEventListener('pointerup', endDrag);
+    c.addEventListener('pointercancel', endDrag);
+    svg.appendChild(c);
+
+    updateEqCardCurve(cfg);
+  }
+
+  function updateEqCardCurve(cfg){
+    const svg = document.getElementById(cfg.svgId);
+    if(!svg || !svg.isConnected) return;
+    const wrap = svg.parentElement;
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    if(w===0 || h===0) return;
+    const node = cfg.getNode();
+    const path = document.getElementById(cfg.svgId+'_path');
+    if(node && path && node.getFrequencyResponse){
+      const N = 96;
+      const freqs = new Float32Array(N);
+      for(let i=0;i<N;i++){ freqs[i] = EQ_MIN_F2 * Math.pow(EQ_MAX_F2/EQ_MIN_F2, i/(N-1)); }
+      const mag = new Float32Array(N), phase = new Float32Array(N);
+      node.getFrequencyResponse(freqs, mag, phase);
+      const pts = [];
+      for(let i=0;i<N;i++){
+        const db = 20*Math.log10(Math.max(1e-6, mag[i]));
+        pts.push(`${eqCardFreqToX(freqs[i],w)},${eqCardGainToY(db,h)}`);
+      }
+      path.setAttribute('points', pts.join(' '));
+    }
+    const pt = document.getElementById(cfg.svgId+'_pt');
+    if(pt){
+      pt.setAttribute('cx', eqCardFreqToX(val(cfg.freqKey), w));
+      pt.setAttribute('cy', eqCardGainToY(val(cfg.gainKey), h));
+    }
+  }
+  function updateAllEqCardCurves(){ EQ_CARD_CURVES.forEach(updateEqCardCurve); }
+
+  // ---- draggable Saturation transfer-curve widget: x/y both -1..1 (input vs
+  // output amplitude). The point sits ON the actual soft-clip curve at a fixed
+  // reference input; dragging it vertically bisects for the Drive amount that
+  // makes the curve pass through the dragged point. ----
+  const SAT_CURVE_REF_X = 0.65;
+  let satCurveDragging = false;
+  function saturationOutputAt(x, amount){
+    const k = 0.3 + amount*9;
+    return Math.tanh(k*x) / Math.tanh(k);
+  }
+  function satAmountFromTargetOutput(targetY, x){
+    let lo=0, hi=1;
+    for(let i=0;i<25;i++){
+      const mid=(lo+hi)/2;
+      if(saturationOutputAt(x, mid) < targetY) lo = mid; else hi = mid;
+    }
+    return (lo+hi)/2;
+  }
+  function satXToPixel(x, w){ return (x+1)/2*w; }
+  function satYToPixel(y, h){ return h - (y+1)/2*h; }
+  function satPixelToX(px, w){ return Math.min(1,Math.max(-1,(px/w)*2-1)); }
+  function satPixelToY(py, h){ return Math.min(1,Math.max(-1, (1-py/h)*2-1)); }
+
+  function buildSatCurveSvg(){
+    const svg = document.getElementById('satCurveSvg');
+    if(!svg) return;
+    svg.innerHTML = '';
+    const wrap = svg.parentElement;
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    if(w===0 || h===0) return;
+
+    const unity = document.createElementNS('http://www.w3.org/2000/svg','line');
+    unity.setAttribute('x1',0); unity.setAttribute('y1',h);
+    unity.setAttribute('x2',w); unity.setAttribute('y2',0);
+    unity.setAttribute('stroke','rgba(255,255,255,0.12)');
+    unity.setAttribute('stroke-dasharray','3,3');
+    svg.appendChild(unity);
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','polyline');
+    path.setAttribute('id','satCurveSvg_path');
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke','var(--accent)');
+    path.setAttribute('stroke-width','2');
+    svg.appendChild(path);
+
+    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('id','satCurveSvg_pt');
+    c.setAttribute('r',6);
+    c.setAttribute('fill','var(--warn)');
+    c.setAttribute('stroke','#0a0c10'); c.setAttribute('stroke-width',1.5);
+    c.style.cursor='grab'; c.style.pointerEvents='auto';
+    c.addEventListener('pointerdown', e=>{
+      e.preventDefault();
+      satCurveDragging = true;
+      c.setPointerCapture(e.pointerId);
+      c.style.cursor='grabbing';
+    });
+    c.addEventListener('pointermove', e=>{
+      if(!satCurveDragging) return;
+      const rect = svg.getBoundingClientRect();
+      const py = Math.max(0, Math.min(rect.height, e.clientY-rect.top));
+      const targetY = satPixelToY(py, rect.height);
+      const amount = satAmountFromTargetOutput(Math.max(SAT_CURVE_REF_X+0.001, targetY), SAT_CURVE_REF_X);
+      const amountSlider = document.getElementById('satAmountSlider');
+      amountSlider.value = Math.round(amount*100);
+      amountSlider.dispatchEvent(new Event('input'));
+    });
+    const endDrag = ()=>{ if(satCurveDragging){ satCurveDragging=false; c.style.cursor='grab'; } };
+    c.addEventListener('pointerup', endDrag);
+    c.addEventListener('pointercancel', endDrag);
+    svg.appendChild(c);
+
+    updateSatCurve();
+  }
+
+  function updateSatCurve(){
+    const svg = document.getElementById('satCurveSvg');
+    if(!svg || !svg.isConnected) return;
+    const wrap = svg.parentElement;
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    if(w===0 || h===0) return;
+    const amount = val('satAmount')/100;
+    const path = document.getElementById('satCurveSvg_path');
+    if(path){
+      const N = 64;
+      const pts = [];
+      for(let i=0;i<N;i++){
+        const x = (i/(N-1))*2 - 1;
+        const y = saturationOutputAt(Math.abs(x), amount) * Math.sign(x || 1);
+        pts.push(`${satXToPixel(x,w)},${satYToPixel(y,h)}`);
+      }
+      path.setAttribute('points', pts.join(' '));
+    }
+    const pt = document.getElementById('satCurveSvg_pt');
+    if(pt){
+      const y = saturationOutputAt(SAT_CURVE_REF_X, amount);
+      pt.setAttribute('cx', satXToPixel(SAT_CURVE_REF_X, w));
+      pt.setAttribute('cy', satYToPixel(y, h));
+    }
   }
 
   // ---- draggable Compressor / Bass Protect transfer-curve widgets (AutoFilter-
@@ -1846,6 +2168,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   bindPair('midQ', 1);
   bindPair('highFreq', 0, 'highFreqTag', v=>`${Math.round(v)} Hz`);
   bindPair('highGain', 1);
+  bindPair('satAmount', 0);
+  bindPair('satMix', 0);
   bindPair('deFreq', 0);
   bindPair('deSens', 0);
   bindPair('deAmount', 1);
@@ -1859,6 +2183,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   bindPair('bassAttack', 0);
   bindPair('bassRelease', 0);
   document.getElementById('bassEnable').addEventListener('change', ()=>{
+    applyAllParams(); invalidateMaster(); scheduleHistoryPush('Manual edit');
+  });
+  document.getElementById('satEnable').addEventListener('change', ()=>{
     applyAllParams(); invalidateMaster(); scheduleHistoryPush('Manual edit');
   });
   bindPair('makeup', 1);
@@ -1955,31 +2282,58 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   // (Loudness Target + Final Mastering), so picking a preset never auto-renders.
   const PRESETS = {
     naturalBalance: { lowFreq:100, lowGain:0.3, midFreq:1000, midGain:0, midQ:0.9, highFreq:8000, highGain:0.3,
-      thresh:-26, ratio:1.8, attack:20, release:180, makeup:0.5, ceil:-1, intensity:30, width:100,
+      satAmount:0, satMix:0,
+      thresh:-26, ratio:1.8, attack:20, release:180,
+      bassFreq:120, bassThresh:-24, bassRatio:1.4, bassAttack:25, bassRelease:200,
+      makeup:0.5, ceil:-1, intensity:30, width:100,
       desc:'The safest default — built for old-school pop, acoustic, and singer-songwriter tracks. Keeps the original dynamics and tone, only lightly balancing what actually needs it.' },
     vocalFocus: { lowFreq:100, lowGain:-1, midFreq:2500, midGain:2.5, midQ:1.2, highFreq:8000, highGain:1.5,
-      thresh:-20, ratio:2.5, attack:15, release:120, makeup:1.5, ceil:-1, intensity:60, width:95,
+      satAmount:15, satMix:10,
+      thresh:-20, ratio:2.5, attack:15, release:120,
+      bassFreq:130, bassThresh:-22, bassRatio:1.8, bassAttack:20, bassRelease:180,
+      makeup:1.5, ceil:-1, intensity:60, width:95,
       desc:'Clears space in the low-mids and lifts vocal presence/volume so lyrics sit forward — the go-to choice for vocal-driven tracks.' },
     lowEndPower: { lowFreq:55, lowGain:3.8, midFreq:600, midGain:-1, midQ:1.0, highFreq:9000, highGain:0,
-      thresh:-22, ratio:3.2, attack:8, release:100, makeup:1, ceil:-1, intensity:55, width:90,
+      satAmount:25, satMix:15,
+      thresh:-22, ratio:3.2, attack:8, release:100,
+      bassFreq:140, bassThresh:-20, bassRatio:2.2, bassAttack:15, bassRelease:150,
+      makeup:1, ceil:-1, intensity:55, width:90,
       desc:'Deep sub-bass boost (55Hz) and punchy compression built for Hip-Hop and EDM — keeps the low end tight and centered for mono-compatible club systems.' },
     smoothHighs: { lowFreq:100, lowGain:0.5, midFreq:4000, midGain:-2.5, midQ:1.4, highFreq:9000, highGain:-3,
-      thresh:-24, ratio:2, attack:20, release:200, makeup:0.8, ceil:-1, intensity:45, width:105,
+      satAmount:10, satMix:10,
+      thresh:-24, ratio:2, attack:20, release:200,
+      bassFreq:120, bassThresh:-24, bassRatio:1.5, bassAttack:22, bassRelease:200,
+      makeup:0.8, ceil:-1, intensity:45, width:105,
       desc:'Tames harsh 3–6kHz sibilance and rolls off the top end for a softer, easier listen — a good fit for R&B and any vocal-heavy track with harsh "S" sounds or a bright mix.' },
     loudPunchy: { lowFreq:100, lowGain:1, midFreq:1200, midGain:0.5, midQ:1.0, highFreq:8500, highGain:1,
-      thresh:-16, ratio:5, attack:5, release:80, makeup:4, ceil:-0.6, intensity:90, width:100,
+      satAmount:35, satMix:25,
+      thresh:-16, ratio:5, attack:5, release:80,
+      bassFreq:150, bassThresh:-18, bassRatio:2.2, bassAttack:12, bassRelease:130,
+      makeup:4, ceil:-0.6, intensity:90, width:100,
       desc:'Maximum-loudness setting — aggressive compression and makeup gain pushed toward competitive streaming/CD loudness (roughly -6 to -8 LUFS territory on its own). Follow up with Loudness Target + Final Mastering below to dial in an exact number.' },
     rhythmicLive: { lowFreq:90, lowGain:2.0, midFreq:4000, midGain:0.8, midQ:1.3, highFreq:9500, highGain:1.5,
-      thresh:-24, ratio:2.0, attack:20, release:80, makeup:1.0, ceil:-1, intensity:50, width:115,
+      satAmount:20, satMix:15,
+      thresh:-24, ratio:2.0, attack:20, release:80,
+      bassFreq:130, bassThresh:-22, bassRatio:2.0, bassAttack:18, bassRelease:150,
+      makeup:1.0, ceil:-1, intensity:50, width:115,
       desc:'Boosts low-end punch (kick/bass) and adds a touch of upper-mid click for drums, with a slower attack that lets transients through — built for live band recordings and energetic performances.' },
     classical: { lowFreq:80, lowGain:0.5, midFreq:1000, midGain:0, midQ:0.8, highFreq:10000, highGain:1.0,
-      thresh:-28, ratio:1.5, attack:25, release:220, makeup:0.5, ceil:-1.2, intensity:20, width:130,
+      satAmount:0, satMix:0,
+      thresh:-28, ratio:1.5, attack:25, release:220,
+      bassFreq:100, bassThresh:-26, bassRatio:1.3, bassAttack:25, bassRelease:220,
+      makeup:0.5, ceil:-1.2, intensity:20, width:130,
       desc:'Wide, airy space for instrumental tracks — beats, MR, piano covers, and orchestral pieces alike. Very light compression preserves dynamics, with extra stereo width for an open, spacious feel.' },
     lofi: { lowFreq:150, lowGain:2.0, midFreq:600, midGain:1.0, midQ:1.0, highFreq:6000, highGain:-4.0,
-      thresh:-26, ratio:2.5, attack:25, release:200, makeup:1.0, ceil:-1.5, intensity:60, width:85,
+      satAmount:40, satMix:35,
+      thresh:-26, ratio:2.5, attack:25, release:200,
+      bassFreq:150, bassThresh:-22, bassRatio:1.8, bassAttack:20, bassRelease:180,
+      makeup:1.0, ceil:-1.5, intensity:60, width:85,
       desc:'Dulled highs, warm low-mid boost, and a narrower stereo image for that dusty tape/vinyl character — built for lo-fi hip-hop, chillhop, and vintage-styled tracks.' },
     streamingSafe: { lowFreq:100, lowGain:0.3, midFreq:1200, midGain:0.3, midQ:0.9, highFreq:8500, highGain:0.5,
-      thresh:-24, ratio:2.0, attack:15, release:150, makeup:1.0, ceil:-1, intensity:40, width:100,
+      satAmount:10, satMix:5,
+      thresh:-24, ratio:2.0, attack:15, release:150,
+      bassFreq:120, bassThresh:-22, bassRatio:1.6, bassAttack:20, bassRelease:180,
+      makeup:1.0, ceil:-1, intensity:40, width:100,
       desc:'A gentle, beginner-friendly starting point for streaming platforms. Pair it with the "Streaming ≈ -14 LUFS" option in Loudness Target below, then hit Final Mastering — the safest path if you\'re not sure where to start.' },
   };
 
@@ -2072,11 +2426,24 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     await updateMasterSummary(masteredBuffer);
   }
 
+  const PRESET_DESC_I18N_KEY = {
+    naturalBalance:'presetDescNatural', vocalFocus:'presetDescVocal', lowEndPower:'presetDescLowEnd',
+    smoothHighs:'presetDescSmooth', loudPunchy:'presetDescLoud', rhythmicLive:'presetDescRhythmicLive',
+    classical:'presetDescClassical', lofi:'presetDescLofi', streamingSafe:'presetDescStreamSafe',
+  };
+  function currentPresetDescText(){
+    const key = document.getElementById('presetSelect').value;
+    const i18nKey = key ? PRESET_DESC_I18N_KEY[key] : 'presetDescManual';
+    const translated = T[currentLang] && T[currentLang][i18nKey];
+    if(translated) return translated;
+    const p = PRESETS[key];
+    return p ? p.desc : T.en.presetDescManual;
+  }
   document.getElementById('presetSelect').addEventListener('change', e=>{
     const p = PRESETS[e.target.value];
     const descEl = document.getElementById('presetDesc');
     if(!p){
-      descEl.textContent = 'Pick a direction to set the EQ and compressor below in one go — you can still fine-tune every slider or number afterward.';
+      descEl.textContent = currentPresetDescText();
       return;
     }
     restoringSnapshot = true; // suppress the per-slider "Manual edit" pushes while we batch-apply
@@ -2089,7 +2456,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     invalidateMaster();
     clearTimeout(historyDebounceId);
     pushHistory('Preset: ' + e.target.selectedOptions[0].textContent);
-    descEl.textContent = p.desc;
+    descEl.textContent = currentPresetDescText();
   });
 
   // ---- My Presets: save/load the full Mixing Desk state to this browser
@@ -2098,6 +2465,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   // the browser. ----
   const SETTINGS_SLIDER_KEYS = [
     'lowFreq','lowGain','midFreq','midGain','midQ','highFreq','highGain',
+    'satAmount','satMix',
     'thresh','ratio','attack','release',
     'bassFreq','bassThresh','bassRatio','bassAttack','bassRelease',
     'makeup','ceil','intensity',
@@ -2107,6 +2475,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   const SETTINGS_LABELS = {
     lowFreq:'Low Shelf Freq', lowGain:'Low Shelf Gain', midFreq:'Mid Peak Freq', midGain:'Mid Peak Gain', midQ:'Mid Peak Q',
     highFreq:'High Shelf Freq', highGain:'High Shelf Gain',
+    satAmount:'Saturation Drive', satMix:'Saturation Mix',
     thresh:'Compressor Threshold', ratio:'Compressor Ratio', attack:'Compressor Attack', release:'Compressor Release',
     bassFreq:'Bass Protect Crossover', bassThresh:'Bass Protect Threshold', bassRatio:'Bass Protect Ratio',
     bassAttack:'Bass Protect Attack', bassRelease:'Bass Protect Release',
@@ -2123,6 +2492,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       if(s) snap[k] = parseFloat(s.value);
     });
     snap.bassEnable = document.getElementById('bassEnable').checked;
+    snap.satEnable = document.getElementById('satEnable').checked;
     return snap;
   }
 
@@ -2134,6 +2504,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       if(s){ s.value = snap[k]; s.dispatchEvent(new Event('input')); }
     });
     if(snap.bassEnable != null) document.getElementById('bassEnable').checked = !!snap.bassEnable;
+    if(snap.satEnable != null) document.getElementById('satEnable').checked = !!snap.satEnable;
     restoringSnapshot = false;
     applyAllParams();
     invalidateMaster();
@@ -2222,7 +2593,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   function getSettingsText(){
     const snap = getSettingsSnapshot();
     const lines = SETTINGS_SLIDER_KEYS.map(k => `${SETTINGS_LABELS[k]}: ${snap[k]}`);
-    lines.splice(11, 0, `Bass Protect Enable: ${snap.bassEnable ? 'On' : 'Off'}`);
+    lines.splice(13, 0, `Bass Protect Enable: ${snap.bassEnable ? 'On' : 'Off'}`);
+    lines.splice(9, 0, `Saturation Enable: ${snap.satEnable ? 'On' : 'Off'}`);
     return 'AI Mastering Tool — Mixing Desk settings\n' + lines.join('\n');
   }
   document.getElementById('copySettingsBtn').addEventListener('click', async ()=>{
@@ -2291,6 +2663,10 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       const valueStr = line.slice(idx+1).trim();
       if(label === 'Bass Protect Enable'){
         snap.bassEnable = /^on$/i.test(valueStr);
+        return;
+      }
+      if(label === 'Saturation Enable'){
+        snap.satEnable = /^on$/i.test(valueStr);
         return;
       }
       const key = LABEL_TO_SETTINGS_KEY[label];
@@ -2580,6 +2956,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     drawSpectrum(audioBuffer);
     buildEqCurveSvg();
     COMP_CURVES.forEach(buildCompCurveSvg);
+    EQ_CARD_CURVES.forEach(buildEqCardCurveSvg);
+    buildSatCurveSvg();
     ['anState','anTone','anDyn','anSpace','anHarsh'].forEach(id=> document.getElementById(id).textContent = 'Analyzing…');
     ['recLow','recMid','recHigh','recDyn'].forEach(id=> document.getElementById(id).textContent = 'Analyzing…');
     document.getElementById('presetMatch').textContent = 'Analyzing…';
@@ -2651,18 +3029,26 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const rect = wrap.getBoundingClientRect();
     const ratio = (e.clientX - rect.left) / rect.width;
     const seekTo = ratio * audioBuffer.duration;
-    setMode(targetMode);
+    // while something is already playing, a click on EITHER waveform only seeks —
+    // it never switches which stream (Original/Pre Mastering) is audible. Only
+    // switch modes here if nothing is currently playing (first click picks the mode).
+    // Note: Pre Mastering (mode B) plays through the LIVE processing chain, not
+    // the offline masteredBuffer render — so it doesn't need masteredBuffer to
+    // exist. Any slider tweak nulls masteredBuffer (until Run Mastering again),
+    // but that must never block seeking while B is actively playing.
+    const effectiveMode = isPlaying ? mode : targetMode;
+    setMode(effectiveMode);
     if(isPlaying) stopPlayback();
     pausedAt = seekTo;
     startPlayback(seekTo);
   }
   waveWrapA.addEventListener('click', (e)=> seekFromWrap(waveWrapA, 'A', e));
-  waveWrapB.addEventListener('click', (e)=>{ if(masteredBuffer) seekFromWrap(waveWrapB, 'B', e); });
+  waveWrapB.addEventListener('click', (e)=> seekFromWrap(waveWrapB, 'B', e));
 
   window.addEventListener('resize', ()=>{
     if(audioBuffer) drawWaveform(audioBuffer, waveCanvasA, waveWrapA, waveCtxA, 'rgba(79,214,196,0.85)');
     if(masteredBuffer) drawWaveform(masteredBuffer, waveCanvasB, waveWrapB, waveCtxB, 'rgba(242,165,65,0.9)');
-    if(audioBuffer){ drawSpectrum(audioBuffer); buildEqCurveSvg(); COMP_CURVES.forEach(buildCompCurveSvg); }
+    if(audioBuffer){ drawSpectrum(audioBuffer); buildEqCurveSvg(); COMP_CURVES.forEach(buildCompCurveSvg); EQ_CARD_CURVES.forEach(buildEqCardCurveSvg); buildSatCurveSvg(); }
   });
 
   function fmtTime(s){
@@ -2727,7 +3113,15 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   function stopPlayback(natural=false){
     isPlaying = false;
     updateTransportIcons();
-    if(sourceNode){ try{ sourceNode.stop(); }catch(e){} sourceNode.disconnect(); }
+    if(sourceNode){
+      sourceNode.onended = null; // manual stop still fires 'ended' asynchronously — without
+      // clearing this first, that stale event lands AFTER a new seek's sourceNode has already
+      // started, and (since the handler only checks the global isPlaying, not "is this still
+      // the active node") it wrongly stops the NEW playback and resets to 0. This is the actual
+      // cause of "click waveform mid-play → jumps back to the start".
+      try{ sourceNode.stop(); }catch(e){}
+      sourceNode.disconnect();
+    }
     pausedAt = natural ? 0 : (audioCtx.currentTime - startedAt);
     if(natural){
       wavePlayheadA.style.left = '0%';
@@ -2774,6 +3168,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     }
     updateGrMeters();
     updateLiveMonitor();
+    drawLiveSpectrum();
+    mirrorToPopup();
   }
 
   // ---- live monitor: stereo true peak (vertical bars) + momentary/average LUFS ----
@@ -2863,6 +3259,136 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 
+  // ---- colorful real-time frequency spectrum visualizer (Live Monitor) —
+  // reuses the existing analyserL tap (no new audio node needed), drawn as
+  // log-spaced gradient bars, violet(low)→red(high) like a hardware analyzer. ----
+  function drawLiveSpectrum(targetCanvas){
+    const canvas = targetCanvas || document.getElementById('liveSpectrumCanvas');
+    if(!canvas) return;
+    const wrap = canvas.parentElement;
+    const dpr = window.devicePixelRatio || 1;
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    if(w===0 || h===0) return;
+    if(canvas.width !== Math.round(w*dpr) || canvas.height !== Math.round(h*dpr)){
+      canvas.width = Math.round(w*dpr); canvas.height = Math.round(h*dpr);
+      canvas.style.width = w+'px'; canvas.style.height = h+'px';
+    }
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,w,h);
+    if(!isPlaying || !analyserL) return;
+    const n = analyserL.frequencyBinCount;
+    const data = new Uint8Array(n);
+    analyserL.getByteFrequencyData(data);
+    const barCount = 56;
+    const minBin = 1, maxBin = n-1;
+    for(let i=0;i<barCount;i++){
+      const binLo = Math.floor(minBin * Math.pow(maxBin/minBin, i/barCount));
+      const binHi = Math.max(binLo+1, Math.floor(minBin * Math.pow(maxBin/minBin, (i+1)/barCount)));
+      let sum=0, cnt=0;
+      for(let b=binLo; b<binHi && b<n; b++){ sum+=data[b]; cnt++; }
+      const v = cnt ? sum/cnt : 0;
+      const barH = Math.max(2, (v/255) * h);
+      const hue = 265 - (i/barCount)*265; // violet (low freq) -> red (high freq)
+      const x = (i/barCount)*w;
+      const barW = Math.max(1, w/barCount - 1);
+      const grad = ctx.createLinearGradient(0, h-barH, 0, h);
+      grad.addColorStop(0, `hsla(${hue},85%,68%,0.95)`);
+      grad.addColorStop(1, `hsla(${hue},85%,45%,0.5)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, h-barH, barW, barH);
+    }
+  }
+
+  // ---- Loudness Range (LRA), EBU R128-style: gate momentary loudness blocks
+  // above -70 LUFS absolute, then above (mean-20) relative, and take the
+  // 10th-95th percentile spread of what's left. Reuses the same monitorBlocks
+  // history already being collected for Average LUFS. ----
+  function computeLRA(blocks){
+    const passAbs = blocks.filter(l => l > -70);
+    if(passAbs.length < 2) return null;
+    const meanAbs = passAbs.reduce((a,b)=>a+b,0)/passAbs.length;
+    const relThresh = meanAbs - 20;
+    const gated = passAbs.filter(l => l > relThresh).sort((a,b)=>a-b);
+    if(gated.length < 2) return null;
+    const p10 = gated[Math.floor(gated.length*0.10)];
+    const p95 = gated[Math.min(gated.length-1, Math.floor(gated.length*0.95))];
+    return Math.max(0, p95 - p10);
+  }
+
+  // ---- Pop-out Live Monitor: a separate small window (same origin, opened
+  // via window.open from this page) showing a live-mirrored copy of the key
+  // meters, so it can be dragged to a second monitor or a convenient spot
+  // while working the Mixing Desk sliders. No cross-origin issues since it's
+  // opened from — and only ever written to by — this same document. ----
+  let monitorPopup = null;
+
+  function openMonitorPopup(){
+    if(monitorPopup && !monitorPopup.closed){ monitorPopup.focus(); return; }
+    monitorPopup = window.open('', 'aiMasteringMonitor', 'width=340,height=780');
+    if(!monitorPopup) return; // popup blocked by the browser
+    const doc = monitorPopup.document;
+    doc.open();
+    doc.write(`<!DOCTYPE html><html><head><title>Live Monitor</title><meta charset="utf-8"><style>
+      html,body{height:100%;margin:0;}
+      body{background:#0d0f14;color:#e7e5df;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;
+        padding:18px; box-sizing:border-box; display:flex; flex-direction:column; min-height:100%;}
+      .mon-label{flex:0 0 auto; font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:#8b8f9a;margin:14px 0 6px;text-align:center;}
+      .mon-value{flex:0 0 auto; font-size:24px;font-weight:700;text-align:center;color:#4fd6c4;}
+      /* flex:1 so THIS is the element that absorbs any extra vertical space when
+         the popup window is resized taller — everything else stays fixed-size. */
+      .spectrum-wrap{flex:1 1 auto; min-height:70px; position:relative; background:rgba(255,255,255,0.03); border:1px solid #2a2f3a; border-radius:8px; overflow:hidden; margin-bottom:4px;}
+      .vmeter-row{flex:0 0 auto; display:flex; gap:22px; justify-content:center; align-items:flex-end; margin:10px 0;}
+      .vbar-track{width:30px; height:130px; background:rgba(255,255,255,0.06); border-radius:5px; position:relative; overflow:hidden;}
+      .vbar-fill{position:absolute; bottom:0; left:0; width:100%; background:linear-gradient(180deg,#ef5350,#f2a541,#4fd6c4); border-radius:5px; transition:height 0.05s linear;}
+      .vbar-label{text-align:center; font-size:11px; margin-top:6px; color:#8b8f9a;}
+    </style></head><body>
+      <div class="mon-label">Live Spectrum</div>
+      <div class="spectrum-wrap"><canvas id="popSpectrum" style="width:100%;height:100%;display:block;"></canvas></div>
+      <div class="vmeter-row">
+        <div><div class="vbar-track"><div class="vbar-fill" id="popVbarL" style="height:0%"></div></div><div class="vbar-label" id="popVbarLVal">L —</div></div>
+        <div><div class="vbar-track"><div class="vbar-fill" id="popVbarR" style="height:0%"></div></div><div class="vbar-label" id="popVbarRVal">R —</div></div>
+      </div>
+      <div class="mon-label">Live LUFS</div><div class="mon-value" id="popLufs">—</div>
+      <div class="mon-label">Loudness Range (LRA)</div><div class="mon-value" id="popLra" style="color:#f2a541;">—</div>
+      <div class="mon-label">Correlation</div><div class="mon-value" id="popCorr" style="font-size:17px;">—</div>
+      <div class="mon-label">Balance (L / R)</div><div class="mon-value" id="popBal" style="font-size:17px;">—</div>
+    </body></html>`);
+    doc.close();
+
+    // true "detach": hide the panel's content back on the main page while the
+    // popup is open, and poll for the popup closing to bring it back — window
+    // close events aren't reliably observable cross-window any other way.
+    document.getElementById('monitorPanelBody').style.display = 'none';
+    document.getElementById('monitorPoppedOutNote').style.display = 'block';
+    const watchClosed = setInterval(()=>{
+      if(!monitorPopup || monitorPopup.closed){
+        clearInterval(watchClosed);
+        document.getElementById('monitorPanelBody').style.display = '';
+        document.getElementById('monitorPoppedOutNote').style.display = 'none';
+      }
+    }, 400);
+  }
+  document.getElementById('popoutMonitorBtn').addEventListener('click', openMonitorPopup);
+
+  function mirrorToPopup(){
+    if(!monitorPopup || monitorPopup.closed) return;
+    try{
+      const d = monitorPopup.document;
+      const set = (id, text) => { const el = d.getElementById(id); if(el) el.textContent = text; };
+      const setStyle = (id, prop, val) => { const el = d.getElementById(id); if(el) el.style[prop] = val; };
+      set('popLufs', document.getElementById('monLiveLufs').textContent);
+      set('popLra', document.getElementById('monLra').textContent);
+      set('popCorr', document.getElementById('corrVal').textContent);
+      set('popBal', document.getElementById('balVal').textContent);
+      setStyle('popVbarL', 'height', document.getElementById('vbarL').style.height);
+      setStyle('popVbarR', 'height', document.getElementById('vbarR').style.height);
+      set('popVbarLVal', document.getElementById('vbarLVal').textContent);
+      set('popVbarRVal', document.getElementById('vbarRVal').textContent);
+      drawLiveSpectrum(d.getElementById('popSpectrum'));
+    }catch(e){ /* popup navigated away or was closed mid-frame — ignore */ }
+  }
+
   function updateLiveMonitor(){
     if(!analyserL || !isPlaying){
       if(!isPlaying){
@@ -2871,6 +3397,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         vbarLVal.classList.remove('warn'); vbarRVal.classList.remove('warn');
         monLiveLufs.textContent = '—';
         corrVal.textContent = '—'; balVal.textContent = '—';
+        document.getElementById('monLra').textContent = '—';
         clearGoniometer();
       }
       return;
@@ -2933,6 +3460,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         const avg = finalSet.reduce((a,b)=>a+b,0)/finalSet.length;
         monAvgLufs.textContent = `${avg.toFixed(1)} LUFS`;
       }
+      const lra = computeLRA(monitorBlocks);
+      if(lra != null) document.getElementById('monLra').textContent = `${lra.toFixed(1)} LU`;
     }
   }
 
@@ -2951,6 +3480,18 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     mid.frequency.value = val('midFreq'); mid.Q.value = val('midQ'); mid.gain.value = val('midGain');
     const hi = offlineCtx.createBiquadFilter(); hi.type='highshelf';
     hi.frequency.value = val('highFreq'); hi.gain.value = val('highGain');
+
+    const satAmountO = val('satAmount')/100;
+    const satOnO = document.getElementById('satEnable') ? document.getElementById('satEnable').checked : true;
+    const satMixO = satOnO ? val('satMix')/100 : 0;
+    const satPreO = offlineCtx.createGain(); satPreO.gain.value = 1 + satAmountO*2;
+    const satShaperO = offlineCtx.createWaveShaper();
+    satShaperO.oversample = '4x';
+    satShaperO.curve = buildSaturationCurve(satAmountO);
+    const satPostO = offlineCtx.createGain(); satPostO.gain.value = 1/(1 + satAmountO*0.6);
+    const satDryO = offlineCtx.createGain(); satDryO.gain.value = 1 - satMixO;
+    const satWetO = offlineCtx.createGain(); satWetO.gain.value = satMixO;
+    const satSumO = offlineCtx.createGain();
 
     const deHpO = offlineCtx.createBiquadFilter(); deHpO.type='highpass'; deHpO.frequency.value=val('deFreq'); deHpO.Q.value=0.7;
     const deLpO = offlineCtx.createBiquadFilter(); deLpO.type='lowpass'; deLpO.frequency.value=val('deFreq'); deLpO.Q.value=0.7;
@@ -2991,7 +3532,10 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
 
     src.connect(dry); dry.connect(offlineCtx.destination);
     src.connect(lo); lo.connect(mid); mid.connect(hi);
-    hi.connect(deHpO); hi.connect(deLpO);
+    hi.connect(satDryO); hi.connect(satPreO);
+    satPreO.connect(satShaperO); satShaperO.connect(satPostO); satPostO.connect(satWetO);
+    satDryO.connect(satSumO); satWetO.connect(satSumO);
+    satSumO.connect(deHpO); satSumO.connect(deLpO);
     deHpO.connect(deCompO); deCompO.connect(deSumO); deLpO.connect(deSumO);
     deSumO.connect(bassLpO); deSumO.connect(bassHpO);
     bassLpO.connect(bassCompO); bassCompO.connect(bassSumO);
@@ -3133,34 +3677,73 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.clearRect(0,0,w,h);
-    function drawTrace(env, color){
+    const hotColorResolved = (getComputedStyle(document.documentElement).getPropertyValue('--hot') || '#ef5350').trim();
+
+    function normalize(env){
       let maxV = 1e-9;
       for(let i=0;i<env.length;i++) if(env[i]>maxV) maxV = env[i];
-      ctx.beginPath();
-      for(let i=0;i<env.length;i++){
-        const x = (i/(env.length-1))*w;
-        const norm = env[i]/maxV;
-        const y = h - norm*(h-10) - 5;
-        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-      }
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      const out = new Float32Array(env.length);
+      for(let i=0;i<env.length;i++) out[i] = env[i]/maxV;
+      return out;
     }
-    drawTrace(origEnv, 'rgba(79,214,196,0.9)');
-    drawTrace(mastEnv, 'rgba(242,165,65,0.9)');
+    const origNorm = normalize(origEnv);
+    const mastNorm = normalize(mastEnv);
+    const n = Math.min(origNorm.length, mastNorm.length);
+
+    // per-point divergence between the two normalized shapes — used to flag
+    // "this bit of the master doesn't track the original's decay shape"
+    // (chopped sustains, merged/smeared hits, extra re-swell bumps, etc.)
+    const diff = new Float32Array(n);
+    for(let i=0;i<n;i++) diff[i] = Math.abs(mastNorm[i]-origNorm[i]);
+    let meanD=0; for(let i=0;i<n;i++) meanD += diff[i]; meanD/=n;
+    let varD=0; for(let i=0;i<n;i++) varD += (diff[i]-meanD)**2; varD/=n;
+    const stdD = Math.sqrt(varD);
+    const threshold = Math.max(0.15, meanD + 1.2*stdD);
+
+    function yOf(norm){ return h - norm*(h-10) - 5; }
+    function xOf(i){ return (i/(n-1))*w; }
+
+    // Original trace — single solid line, always the same color
+    ctx.beginPath();
+    for(let i=0;i<n;i++){ const x=xOf(i), y=yOf(origNorm[i]); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+    ctx.strokeStyle = 'rgba(79,214,196,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Master trace — drawn as runs of normal-color / flagged-color segments so
+    // divergent stretches jump out visually without hunting through the shape.
+    let flaggedSamples = 0;
+    let i = 0;
+    while(i < n-1){
+      const flagged = diff[i] > threshold;
+      if(flagged) flaggedSamples++;
+      let j = i;
+      ctx.beginPath();
+      ctx.moveTo(xOf(j), yOf(mastNorm[j]));
+      while(j < n-1 && (diff[j+1] > threshold) === flagged){
+        j++;
+        ctx.lineTo(xOf(j), yOf(mastNorm[j]));
+        if(flagged) flaggedSamples++;
+      }
+      ctx.strokeStyle = flagged ? hotColorResolved : 'rgba(242,165,65,0.9)';
+      ctx.lineWidth = flagged ? 2.4 : 1.5;
+      ctx.stroke();
+      i = j > i ? j : i + 1; // guarantee forward progress even for a 1-sample segment
+    }
+    return { flaggedPct: (flaggedSamples/n)*100 };
   }
 
   async function renderEnvelopeView(){
     const emptyEl = document.getElementById('envEmpty');
     const btn = document.getElementById('envRenderBtn');
+    const tr0 = T[currentLang] || T.en;
     if(!audioBuffer){ return; }
     if(!masteredBuffer){
-      emptyEl.textContent = 'Run Mastering first — need a Master to compare Original against.';
+      emptyEl.textContent = tr0.envNeedMaster || T.en.envNeedMaster;
       emptyEl.style.display = 'flex';
       return;
     }
-    btn.disabled = true; btn.textContent = 'Rendering…';
+    btn.disabled = true; btn.textContent = tr0.rendering || T.en.rendering;
     const band = document.getElementById('envBandSelect').value;
     const startSec = Math.max(0, parseFloat(document.getElementById('envStart').value)||0);
     const durSec = Math.max(1, parseFloat(document.getElementById('envDur').value)||10);
@@ -3171,21 +3754,26 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     ]);
 
     if(!origEnv || !mastEnv){
-      emptyEl.textContent = 'That window is past the end of the track — try a smaller Start or Duration.';
+      emptyEl.textContent = tr0.envWindowTooLong || T.en.envWindowTooLong;
       emptyEl.style.display = 'flex';
-      btn.disabled = false; btn.textContent = '📈 Render Envelope';
+      btn.disabled = false; btn.textContent = tr0.btnRenderEnvelope || T.en.btnRenderEnvelope;
       return;
     }
     emptyEl.style.display = 'none';
-    drawEnvelopeCanvas(origEnv, mastEnv);
+    const { flaggedPct } = drawEnvelopeCanvas(origEnv, mastEnv);
 
     const origStats = summarizeEnvelope(origEnv, durSec);
     const mastStats = summarizeEnvelope(mastEnv, durSec);
+    const tr = T[currentLang] || T.en;
+    const flagLine = flaggedPct > 3
+      ? `<br><span style="color:var(--hot);">⚠ ${(tr.envFlagWarn || T.en.envFlagWarn).replace('{pct}', flaggedPct.toFixed(0))}</span>`
+      : `<br><span style="color:var(--accent);">✓ ${(tr.envFlagOk || T.en.envFlagOk).replace('{pct}', flaggedPct.toFixed(0))}</span>`;
     document.getElementById('envStats').innerHTML =
-      `Original — peak-to-25% decay (loudest hit in window): <b style="color:var(--accent);">${origStats.decayMs.toFixed(0)}ms</b><br>` +
-      `Master — peak-to-25% decay (loudest hit in window): <b style="color:var(--warn);">${mastStats.decayMs.toFixed(0)}ms</b>`;
+      `${tr.envStatOrigDecay || T.en.envStatOrigDecay} <b style="color:var(--accent);">${origStats.decayMs.toFixed(0)}ms</b><br>` +
+      `${tr.envStatMastDecay || T.en.envStatMastDecay} <b style="color:var(--warn);">${mastStats.decayMs.toFixed(0)}ms</b>` +
+      flagLine;
 
-    btn.disabled = false; btn.textContent = '📈 Render Envelope';
+    btn.disabled = false; btn.textContent = tr0.btnRenderEnvelope || T.en.btnRenderEnvelope;
   }
   document.getElementById('envRenderBtn').addEventListener('click', renderEnvelopeView);
 
@@ -3568,6 +4156,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
 
   function updatePlatformChecklist(lufs, peak){
     const el = document.getElementById('platformList');
+    const t = T[currentLang] || T.en;
+    const platNotes = { 'unofficial, varies': t.platNoteTiktok, 'no real ceiling — loud-master reference': t.platNoteCd };
     el.innerHTML = '';
     PLATFORM_TARGETS.forEach(p=>{
       const over = lufs - p.target;
@@ -3575,14 +4165,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       if(over <= 1){
         icon = '✅';
         note = over <= -1
-          ? `${Math.abs(over).toFixed(1)}dB under target — platform may turn it up slightly.`
-          : 'Within target — safe from turn-down.';
+          ? t.platUnderTarget(Math.abs(over).toFixed(1))
+          : t.platWithinTarget;
       } else {
         icon = '⚠️';
-        note = `${over.toFixed(1)}dB louder than target — platform will likely turn this down by about that much.`;
+        note = t.platOverTarget(over.toFixed(1));
         warn = true;
       }
-      if(p.note) note += ` (${p.note})`;
+      if(p.note) note += ` (${platNotes[p.note] || p.note})`;
       const row = document.createElement('div');
       row.className = 'platform-row' + (warn ? ' warn' : '');
       row.innerHTML = `<span class="p-icon">${icon}</span><span class="p-name">${p.name}</span><span class="p-target">${p.target} LUFS</span><span class="p-note">${note}</span>`;
@@ -3591,7 +4181,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     if(peak > -1){
       const row = document.createElement('div');
       row.className = 'platform-row warn';
-      row.innerHTML = `<span class="p-icon">⚠️</span><span class="p-name">True Peak</span><span class="p-target">${peak.toFixed(1)} dBTP</span><span class="p-note">Above the -1dBTP safety margin — lossy transcoding (MP3/AAC) on any platform could clip.</span>`;
+      row.innerHTML = `<span class="p-icon">⚠️</span><span class="p-name">True Peak</span><span class="p-target">${peak.toFixed(1)} dBTP</span><span class="p-note">${t.platTruePeakWarn}</span>`;
       el.appendChild(row);
     }
   }
@@ -3649,6 +4239,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   }
 
   let lastMeasuredLufs = null;
+  let lastMeasuredPeak = null;
 
   async function updateMasterSummary(buf){
     document.getElementById('sumLufs').textContent = 'Measuring…';
@@ -3659,6 +4250,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     document.getElementById('sumPeak').textContent = `${peak.toFixed(1)} dBTP`;
     updatePlatformChecklist(lufs, peak);
     lastMeasuredLufs = lufs;
+    lastMeasuredPeak = peak;
     updateDownloadSuggestions(lufs);
   }
 
@@ -3673,6 +4265,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     btn.disabled = false; btn.textContent = T[currentLang].runMastering;
     setMode('B');
     updateMasterSummary(masteredBuffer);
+    renderEnvelopeView(); // auto-refresh so the decay-shape check is never stale
   });
 
   // ---- loudness target + final mastering ----
@@ -3693,6 +4286,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     if(selectedLoudnessTarget === 'louder') await pushLouder();
     else await calibrateToTarget(parseFloat(selectedLoudnessTarget));
     btn.disabled = false; btn.textContent = prevLabel;
+    renderEnvelopeView(); // Final Mastering re-renders the master too — keep the envelope check in sync
   });
 
   // ---- format tabs (WAV / MP3) ----
@@ -3900,26 +4494,58 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       envViewerNote: 'Zooms into a short window and overlays a chosen frequency band\'s envelope (attack + decay shape) for Original vs Master — the same "did the sustain get chopped shorter" check used to diagnose over-compression by ear. Needs a Master (Run Mastering) to compare against.',
       envBandLabel: 'Band', envBandLow: 'Low (20–250 Hz)', envBandMid: 'Mid (250–4000 Hz)', envBandHigh: 'High (4000 Hz+)', envBandFull: 'Full Mix',
       envStartLabel: 'Start (s)', envDurLabel: 'Duration (s)', btnRenderEnvelope: '📈 Render Envelope',
-      legendOriginal: 'Original', legendMaster: 'Master',
+      legendOriginal: 'Original', legendMaster: 'Master', legendFlagged: 'Master diverges from Original here',
       envEmptyHint: 'Pick a band/window and click Render Envelope. Each curve is normalized to its own peak — you\'re comparing decay SHAPE, not loudness.',
       compCurveHint: 'Drag the orange dot to set Threshold, the red dot to set Ratio — same as the EQ spectrum above.',
       bassCurveHint: 'Drag the orange dot to set Threshold, the red dot to set Ratio.',
       enableLabel: 'Enable', bassEnableLabel: 'On — process low end separately',
+      bandSaturation: 'Saturation', descSaturation: 'Adds harmonic warmth/density with a soft-clip curve — an alternative to the Compressor for "fullness" that doesn\'t touch dynamics. Drive sets how hard the signal is pushed into the curve; Mix blends it back with the untouched dry signal (parallel saturation).',
+      satCurveHint: 'Drag the point up/down to set Drive — the curve bends harder as it rises.', satEnableLabel: 'On — apply saturation',
+      envStatOrigDecay: 'Original — peak-to-25% decay (loudest hit in window):', envStatMastDecay: 'Master — peak-to-25% decay (loudest hit in window):',
+      envFlagWarn: '{pct}% of this window (red segments above) diverges noticeably from the original\'s shape — worth a listen there.', envFlagOk: 'Master closely tracks the original\'s shape here ({pct}% flagged).',
+      legendNormal: 'Normal — smoothly balanced against the surrounding frequencies', legendMildBump: 'Mild bump — a moderate peak standing out from its neighbors',
+      legendSharpRes: 'Sharp resonance — a narrow spike likely to sound "clumped" or ringy', legendShadedZone: 'Shaded zone (3.5–12kHz) — background tint matches the Spectral Harshness score',
+      liveMonitorNote: 'Live while playing — same simplified BS.1770-style method as the summary panel, computed in real time. Treat as a rough live reference, not a certified meter.',
+      platUnderTarget: db => `${db}dB under target — platform may turn it up slightly.`,
+      platWithinTarget: 'Within target — safe from turn-down.',
+      platOverTarget: db => `${db}dB louder than target — platform will likely turn this down by about that much.`,
+      platNoteTiktok: 'unofficial, varies', platNoteCd: 'no real ceiling — loud-master reference',
+      platTruePeakWarn: 'Above the -1dBTP safety margin — lossy transcoding (MP3/AAC) on any platform could clip.',
+      platformListEmpty: 'Run Mastering to check this master against platform loudness targets.',
+      lufsApproxNote: 'Integrated LUFS uses a simplified ITU-R BS.1770 K-weighting approximation. True Peak is estimated via 4x oversampling. Treat both as close estimates, not certified measurements.',
+      loudnessTargetNote: 'Pick a preset above and Run Mastering first to hear the tonal character. Then pick a target here and hit Final Mastering — it nudges Makeup Gain (or Ratio/Ceiling for Louder) to land close to that loudness, re-renders, and updates the summary above.',
+      suggestionListEmpty: 'Run Mastering to get concrete suggestions for reaching a streaming-safe loudness, or pushing louder without breaking balance.',
+      processingNoteHtml: 'All processing happens in your browser. Your file is never sent to a server. MP3 encoding is powered by the <a href="https://lame.sourceforge.net" target="_blank" rel="noopener" style="color:var(--accent);">LAME</a> encoder (lamejs port, LGPL-3.0), bundled directly in this file — no external requests needed.',
+      disclaimerHtml: 'This is a real working <b>technical prototype</b>. The EQ, compressor, and limiter are genuinely processed with Web Audio API nodes, and the meters read real-time values. The signal analysis above is computed with actual DSP measurements (peak/RMS, band energy, stereo correlation) — not a trained ML model, so treat it as a rough guide rather than a professional loudness/mastering report.',
+      envNeedMaster: 'Run Mastering first — need a Master to compare Original against.', envWindowTooLong: 'That window is past the end of the track — try a smaller Start or Duration.',
       bandWidth: 'Stereo Width',
       descWidth: 'Splits the signal into mid (center) and side (stereo difference) and scales the side amount. Below 100% narrows toward mono; above 100% widens the stereo image. Mono sources are unaffected since they have no side signal to begin with.',
       eqCurveHint: 'Drag the three dots on the spectrum to set Low Shelf / Mid Peak / High Shelf directly — the Mixing Desk numbers below move with them.',
       gonioHint: 'Live goniometer — the more the shape leans toward horizontal, the wider the stereo image. A straight vertical line means mono.',
       monTruePeak: 'Stereo True Peak', monLiveLufs: 'Live LUFS (momentary)',
       monAvgLufs: 'Average LUFS (this playback)', monCorrelation: 'Correlation', monBalance: 'Balance (L / R)',
+      monLiveSpectrum: 'Live Spectrum', monLra: 'Loudness Range (LRA)', monLraNote: 'How much the loudness varies through the track. Very low (roughly under 3 LU) often means it\'s been squashed flat by heavy compression/limiting.',
+      btnPopoutMonitor: '⇱ Pop out',
+      monPoppedOutNote: 'Popped out to a separate window — close that window to bring this panel back here.',
       waveLabelSpectrum: 'Spectrum (averaged across the track)',
       waveLabelOriginal: 'Original waveform', waveLabelMaster: 'Master waveform',
       fmtWav: 'WAV (lossless)', fmtMp3: 'MP3 (compressed)',
       lblBitDepth: 'Bit Depth', lblSampleRate: 'Sample Rate', lblBitrate: 'Bitrate',
       targetStreaming: 'Streaming ≈ -14 LUFS', targetApple: 'Apple Music ≈ -16 LUFS', targetLouder: 'Louder',
-      presetManual: 'Bypass / Custom', presetNatural: 'Balanced & Natural', presetVocal: 'Vocal Front & Clear',
-      presetLowEnd: 'Deep Low-End (Hip-Hop / EDM)', presetSmooth: 'Smooth & Warm', presetLoud: 'Loud & Punchy (Max Volume)',
-      presetRhythmicLive: 'Live & Energetic', presetClassical: 'Wide Instrumental / Beat',
-      presetLofi: 'Lo-Fi & Vintage', presetStreamSafe: 'Streaming Safe (-14 LUFS)',
+      presetManual: 'Bypass / Custom', presetNatural: 'Balanced & Natural — "Clean"', presetVocal: 'Vocal Front & Clear — "Vocal Up"',
+      presetLowEnd: 'Deep Low-End (Hip-Hop / EDM) — "Bass Boost"', presetSmooth: 'Smooth & Warm — "Soft"', presetLoud: 'Loud & Punchy (Max Volume) — "Max Loud"',
+      presetRhythmicLive: 'Live & Energetic — "Live Punch"', presetClassical: 'Wide Instrumental / Beat — "Wide & Airy"',
+      presetLofi: 'Lo-Fi & Vintage — "Lo-Fi"', presetStreamSafe: 'Streaming Safe (-14 LUFS) — "Safe Start"',
+      presetDescManual: 'Pick a direction to set the EQ and compressor below in one go — you can still fine-tune every slider or number afterward.',
+      presetDescNatural: 'The safest default — built for old-school pop, acoustic, and singer-songwriter tracks. Keeps the original dynamics and tone, only lightly balancing what actually needs it.',
+      presetDescVocal: 'Clears space in the low-mids and lifts vocal presence/volume so lyrics sit forward — the go-to choice for vocal-driven tracks.',
+      presetDescLowEnd: 'Deep sub-bass boost (55Hz) and punchy compression built for Hip-Hop and EDM — keeps the low end tight and centered for mono-compatible club systems.',
+      presetDescSmooth: 'Tames harsh 3–6kHz sibilance and rolls off the top end for a softer, easier listen — a good fit for R&B and any vocal-heavy track with harsh "S" sounds or a bright mix.',
+      presetDescLoud: 'Maximum-loudness setting — aggressive compression and makeup gain pushed toward competitive streaming/CD loudness (roughly -6 to -8 LUFS on its own). Follow up with Loudness Target + Final Mastering to dial in an exact number.',
+      presetDescRhythmicLive: 'Boosts low-end punch (kick/bass) and adds a touch of upper-mid click for drums, with a slower attack that lets transients through — built for live band recordings and energetic performances.',
+      presetDescClassical: 'Wide, airy space for instrumental tracks — beats, MR, piano covers, and orchestral pieces alike. Very light compression preserves dynamics, with extra stereo width for an open, spacious feel.',
+      presetDescLofi: 'Dulled highs, warm low-mid boost, and a narrower stereo image for that dusty tape/vinyl character — built for lo-fi hip-hop, chillhop, and vintage-styled tracks.',
+      presetDescStreamSafe: 'A gentle, beginner-friendly starting point for streaming platforms. Pair it with the "Streaming ≈ -14 LUFS" option in Loudness Target, then hit Final Mastering — the safest path if you\'re not sure where to start.',
       downloadWav: 'Download WAV', downloadMp3: 'Download MP3',
       showFullHistory: 'Show full history', showRecentOnly: 'Show recent only',
       descLowShelf: 'Boosts or cuts everything below the frequency you set. Raising it adds body/warmth; cutting it removes mud or rumble.',
@@ -4022,26 +4648,58 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       envViewerNote: '짧은 구간을 확대해서, 고른 주파수 대역의 엔벨로프(어택+디케이 모양)를 원본과 마스터로 겹쳐 보여줍니다 — 과압축으로 서스테인이 짧아졌는지 귀 대신 눈으로 확인하는 도구예요. 비교하려면 먼저 Run Mastering으로 마스터를 만들어야 합니다.',
       envBandLabel: '대역', envBandLow: '저역 (20–250 Hz)', envBandMid: '중역 (250–4000 Hz)', envBandHigh: '고역 (4000 Hz+)', envBandFull: '전체 믹스',
       envStartLabel: '시작 (초)', envDurLabel: '길이 (초)', btnRenderEnvelope: '📈 엔벨로프 그리기',
-      legendOriginal: '원본', legendMaster: '마스터',
+      legendOriginal: '원본', legendMaster: '마스터', legendFlagged: '마스터가 원본과 크게 달라지는 구간',
       envEmptyHint: '대역/구간을 고르고 Render Envelope을 눌러보세요. 각 곡선은 자기 자신의 피크 기준으로 정규화돼있어서, 음량이 아니라 감쇠 형태(SHAPE)를 비교하는 용도예요.',
       compCurveHint: '주황 점을 끌면 Threshold, 빨간 점을 끌면 Ratio가 바뀝니다 — 위 EQ 스펙트럼과 같은 방식이에요.',
       bassCurveHint: '주황 점을 끌면 Threshold, 빨간 점을 끌면 Ratio가 바뀝니다.',
       enableLabel: '사용', bassEnableLabel: '켜짐 — 저역을 따로 처리',
+      bandSaturation: '새추레이션', descSaturation: '소프트클립 커브로 배음(하모닉)을 더해서 웅장함/밀도감을 만듭니다 — 다이내믹은 안 건드리면서 "꽉 찬" 느낌을 주는, Compressor와는 다른 방식이에요. Drive는 신호를 커브에 얼마나 세게 밀어넣을지, Mix는 그 결과를 원본(가공 안 한 신호)과 얼마나 섞을지를 정해요(패러렐 새추레이션).',
+      satCurveHint: '점을 위아래로 끌면 Drive가 바뀌어요 — 위로 갈수록 커브가 더 세게 휩니다.', satEnableLabel: '켜짐 — 새추레이션 적용',
+      envStatOrigDecay: '원본 — 피크→25% 감쇠 시간 (구간 내 가장 큰 히트 기준):', envStatMastDecay: '마스터 — 피크→25% 감쇠 시간 (구간 내 가장 큰 히트 기준):',
+      envFlagWarn: '이 구간의 {pct}%(위 빨간 구간)가 원본 모양과 눈에 띄게 달라요 — 그 부분 한번 들어보세요.', envFlagOk: '마스터가 이 구간에서 원본 모양을 잘 따라가고 있어요 ({pct}% 표시됨).',
+      legendNormal: '정상 — 주변 주파수와 매끄럽게 균형 잡힘', legendMildBump: '약한 돌출 — 주변보다 살짝 튀는 완만한 피크',
+      legendSharpRes: '날카로운 공명 — 좁고 뾰족한 스파이크, "뭉친" 소리나 울림이 날 수 있음', legendShadedZone: '음영 구간(3.5~12kHz) — 배경색 진하기가 Spectral Harshness 점수와 연동됨',
+      liveMonitorNote: '재생 중 실시간 값 — 상단 요약 패널과 같은 단순화된 BS.1770 방식으로 실시간 계산됩니다. 정식 인증된 미터가 아니라 대략적인 실시간 참고치로 봐주세요.',
+      platUnderTarget: db => `${db}dB 타겟보다 작아요 — 플랫폼이 살짝 올릴 수도 있어요.`,
+      platWithinTarget: '타겟 범위 안 — 다운되지 않고 안전해요.',
+      platOverTarget: db => `${db}dB 타겟보다 커요 — 플랫폼이 그 정도로 다운시킬 가능성이 높아요.`,
+      platNoteTiktok: '비공식, 편차 있음', platNoteCd: '실제 천장 없음 — 라우드 마스터 기준',
+      platTruePeakWarn: '-1dBTP 안전선을 넘었어요 — 어느 플랫폼에서든 손실 압축(MP3/AAC) 변환 시 클리핑될 수 있어요.',
+      platformListEmpty: 'Run Mastering을 눌러서 이 마스터를 플랫폼별 라우드니스 타겟과 비교해보세요.',
+      lufsApproxNote: 'Integrated LUFS는 ITU-R BS.1770 K-weighting을 단순화해서 근사한 값이에요. True Peak은 4배 오버샘플링으로 추정합니다. 둘 다 인증된 측정값이 아니라 근사치로 봐주세요.',
+      loudnessTargetNote: '위에서 프리셋 고르고 먼저 Run Mastering으로 톤 캐릭터를 들어보세요. 그다음 여기서 타겟을 고르고 Final Mastering을 누르면 — Makeup Gain(Louder는 Ratio/Ceiling도)을 살짝 조정해서 그 라우드니스에 가깝게 맞추고, 다시 렌더링하고, 위 요약을 갱신해요.',
+      suggestionListEmpty: 'Run Mastering을 눌러서 스트리밍에 안전한 라우드니스로 가는 법, 또는 밸런스를 안 깨고 더 크게 만드는 법에 대한 구체적인 제안을 받아보세요.',
+      processingNoteHtml: '모든 처리는 브라우저 안에서 이뤄져요. 파일이 서버로 전송되는 일은 없습니다. MP3 인코딩은 <a href="https://lame.sourceforge.net" target="_blank" rel="noopener" style="color:var(--accent);">LAME</a> 인코더(lamejs 포팅, LGPL-3.0)로 처리되고, 이 파일 안에 그대로 번들돼있어서 외부 요청이 필요 없어요.',
+      disclaimerHtml: '이건 실제로 작동하는 <b>기술 프로토타입</b>이에요. EQ, 컴프레서, 리미터는 Web Audio API 노드로 진짜 처리되고, 미터도 실시간 값을 읽습니다. 위 신호 분석은 실제 DSP 측정(피크/RMS, 대역 에너지, 스테레오 상관관계)으로 계산된 거지 학습된 ML 모델이 아니에요 — 전문 라우드니스/마스터링 리포트가 아니라 대략적인 가이드로 봐주세요.',
+      envNeedMaster: 'Run Mastering을 먼저 눌러주세요 — 원본과 비교하려면 마스터가 있어야 해요.', envWindowTooLong: '그 구간이 트랙 끝을 넘어갔어요 — Start나 Duration을 더 작게 해보세요.',
       bandWidth: 'Stereo Width',
       descWidth: '신호를 mid(가운데)와 side(좌우 차이 성분)로 나눠서 side의 양을 조절해요. 100% 아래로 내리면 모노에 가까워지고, 100% 위로 올리면 스테레오 폭이 넓어져요. 모노 음원은 애초에 side 성분이 없어서 영향을 안 받아요.',
       eqCurveHint: '스펙트럼 위 세 개의 점을 드래그하면 Low Shelf / Mid Peak / High Shelf를 바로 조정할 수 있어요 — 아래 Mixing Desk 숫자도 같이 움직여요.',
       gonioHint: '라이브 고니오미터예요 — 모양이 가로로 퍼질수록 스테레오 폭이 넓다는 뜻이고, 세로 일자선이면 모노예요.',
       monTruePeak: 'Stereo True Peak', monLiveLufs: 'Live LUFS (momentary)',
       monAvgLufs: '평균 LUFS (이번 재생)', monCorrelation: 'Correlation', monBalance: 'Balance (L / R)',
+      monLiveSpectrum: '실시간 스펙트럼', monLra: '라우드니스 레인지 (LRA)', monLraNote: '곡 안에서 라우드니스가 얼마나 변하는지 나타내요. 아주 낮으면(대략 3 LU 미만) 강한 압축/리미팅으로 평평하게 눌렸을 가능성이 커요.',
+      btnPopoutMonitor: '⇱ 새 창으로',
+      monPoppedOutNote: '별도 창으로 분리됐어요 — 그 창을 닫으면 여기로 다시 돌아와요.',
       waveLabelSpectrum: '스펙트럼 (트랙 전체 평균)',
       waveLabelOriginal: '오리지널 파형', waveLabelMaster: '마스터 파형',
       fmtWav: 'WAV (무손실)', fmtMp3: 'MP3 (압축)',
       lblBitDepth: 'Bit Depth', lblSampleRate: 'Sample Rate', lblBitrate: 'Bitrate',
       targetStreaming: 'Streaming ≈ -14 LUFS', targetApple: 'Apple Music ≈ -16 LUFS', targetLouder: 'Louder',
-      presetManual: 'Bypass / Custom', presetNatural: 'Balanced & Natural', presetVocal: 'Vocal Front & Clear',
-      presetLowEnd: 'Deep Low-End (Hip-Hop / EDM)', presetSmooth: 'Smooth & Warm', presetLoud: 'Loud & Punchy (Max Volume)',
-      presetRhythmicLive: 'Live & Energetic', presetClassical: 'Wide Instrumental / Beat',
-      presetLofi: 'Lo-Fi & Vintage', presetStreamSafe: 'Streaming Safe (-14 LUFS)',
+      presetManual: '우회 / 커스텀', presetNatural: '균형 & 자연스러움 — "클린"', presetVocal: '보커 전면 & 선명 — "보커 강조"',
+      presetLowEnd: '깊은 저음 (힐합/EDM) — "베이스 강화"', presetSmooth: '부드럽고 따뜻하게 — "소프트"', presetLoud: '크고 퍸치있게 (최대 음량) — "최대 라우드"',
+      presetRhythmicLive: '라이브 & 에너제틱 — "라이브 펀치"', presetClassical: '넓은 인스트루멘털/비트 — "와이드 & 에어리"',
+      presetLofi: '로파이 & 빈티지 — "로파이"', presetStreamSafe: '스트리밍 안전 (-14 LUFS) — "세이프 스타트"',
+      presetDescManual: '아래 EQ/컴프레서를 한 번에 세팅할 방향을 골라보세요 — 고르신 후에도 슬라이더나 숫자는 얼마든지 다시 미세조정하실 수 있어요.',
+      presetDescNatural: '가장 안전한 기본값 — 올드팝, 어쿠스틱, 싱어송라이터 곡에 잘 맞습니다. 원본 다이내믹과 톤을 그대로 유지하면서 진짜 필요한 부분만 살짝 정리해요.',
+      presetDescVocal: '로우미드 대역에 공간을 만들고 보컬 존재감/볼륨을 살려서 가사가 앞으로 나오게 합니다 — 보컬이 중심인 곡에 기본으로 쓰기 좋아요.',
+      presetDescLowEnd: '깊은 서브베이스(55Hz)를 부스트하고 펀치있게 압축해서 힙합/EDM에 맞춘 세팅 — 저음이 타이트하고 가운데로 모여서 모노 호환 클럽 시스템에서도 잘 나와요.',
+      presetDescSmooth: '3~6kHz의 거친 치찰음을 눌러주고 고역을 살짝 깎아서 더 부드럽고 편하게 들리게 합니다 — R&B나 "스" 발음이 거칠거나 전체적으로 밝은(bright) 보컬 중심 곡에 잘 맞아요.',
+      presetDescLoud: '최대 라우드니스 세팅 — 공격적인 압축과 메이크업 게인으로 경쟁력 있는 스트리밍/CD 라우드니스(단독으로 대략 -6~-8 LUFS)까지 밀어붙입니다. 정확한 수치로 맞추려면 아래 Loudness Target + Final Mastering을 이어서 쓰세요.',
+      presetDescRhythmicLive: '킥/베이스의 저역 펀치를 살리고 드럼용 어퍼미드 클릭감을 살짝 더합니다. Attack을 느리게 잡아서 트랜지언트가 통과하게 — 라이브 밴드 녹음이나 에너제틱한 공연 실황에 맞춰졌어요.',
+      presetDescClassical: '인스트루멘털 곡(비트, MR, 피아노 커버, 오케스트라 등)을 위한 넓고 시원한 공간감. 매우 가벼운 압축으로 다이내믹을 보존하고, 스테레오 폭을 더 넓혀서 개방감 있게 만들어요.',
+      presetDescLofi: '고역을 뭉툭하게 하고 로우미드를 따뜻하게 부스트, 스테레오 이미지를 살짝 좁혀서 먼지 낀 테이프/바이닐 느낌을 냅니다 — 로파이 힙합, 칠합, 빈티지 스타일 곡에 맞춰졌어요.',
+      presetDescStreamSafe: '스트리밍 플랫폼용으로 부담 없이 시작하기 좋은 순한 세팅. 아래 Loudness Target에서 "Streaming ≈ -14 LUFS"랑 같이 쓰고 Final Mastering 누르세요 — 뭐부터 시작할지 모르겠으면 가장 안전한 선택이에요.',
       downloadWav: 'WAV 다운로드', downloadMp3: 'MP3 다운로드',
       showFullHistory: '전체 히스토리 보기', showRecentOnly: '최근 항목만 보기',
       descLowShelf: '설정한 주파수 아래 전체를 올리거나 깎아요. 올리면 저음의 무게감/따뜻함이 더해지고, 깎으면 먹먹함이나 웅웅거림이 줄어들어요.',
@@ -4133,21 +4791,69 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       undoBtn: '↩ Deshacer un paso',
       bandLowShelf: 'Low Shelf', bandMidPeak: 'Mid Peak', bandHighShelf: 'High Shelf',
       bandCompressor: 'Compressor', bandLoudness: 'Loudness / Limiter', bandDeharsher: 'De-Harsher',
+      bandBassProtect: 'Protección de Graves',
+      descBassProtect: 'Separa todo lo que está por debajo del cruce ANTES del Compresor principal, y lo comprime aparte con su propio Threshold/Ratio/Attack/Release. Evita que golpes fuertes en otra parte (hi-hats, coros, platillos) hundan o corten el sustain de graves/808 en la reducción de ganancia del Compresor principal — las dos bandas dejan de pelear por la misma reducción.',
+      panelMyPresets: 'Mis Preajustes',
+      myPresetsNote: 'Guarda cada control de la Mesa de Mezcla (EQ, Compresor, Protección de Graves, Loudness/Limitador, De-Harsher, Ancho) en este navegador para poder recargar el mismo punto de partida en otra canción. Se guarda solo localmente en este equipo — no se sube a ningún lado.',
+      btnSaveCurrent: '💾 Guardar Actual', btnLoad: 'Cargar', btnDelete: 'Eliminar',
+      myPresetSelectPlaceholder: '— Preajustes guardados —',
+      btnSaveToFile: '💾 Guardar Ajustes en Archivo…', btnLoadFromFile: '📂 Cargar Ajustes desde Archivo…', btnCopyClipboard: '📋 Copiar al Portapapeles',
+      panelEnvelopeViewer: 'Visor de Envolvente / Sustain',
+      envViewerNote: 'Amplía una ventana corta y superpone la envolvente (forma de ataque + decaimiento) de una banda de frecuencia elegida para Original vs Máster — la misma comprobación de "¿se acortó el sustain?" usada para diagnosticar la sobrecompresión a simple vista. Necesita un Máster (Run Mastering) para comparar.',
+      envBandLabel: 'Banda', envBandLow: 'Graves (20–250 Hz)', envBandMid: 'Medios (250–4000 Hz)', envBandHigh: 'Agudos (4000 Hz+)', envBandFull: 'Mezcla Completa',
+      envStartLabel: 'Inicio (s)', envDurLabel: 'Duración (s)', btnRenderEnvelope: '📈 Dibujar Envolvente',
+      legendOriginal: 'Original', legendMaster: 'Máster', legendFlagged: 'El máster diverge del original aquí',
+      envEmptyHint: 'Elige una banda/ventana y pulsa Render Envelope. Cada curva está normalizada a su propio pico — comparas la FORMA del decaimiento, no el volumen.',
+      compCurveHint: 'Arrastra el punto naranja para fijar el Threshold, el punto rojo para el Ratio — igual que el espectro de EQ de arriba.',
+      bassCurveHint: 'Arrastra el punto naranja para fijar el Threshold, el punto rojo para el Ratio.',
+      enableLabel: 'Activar', bassEnableLabel: 'Activado — procesa los graves por separado',
+      bandSaturation: 'Saturación', descSaturation: 'Añade calidez/densidad armónica con una curva de soft-clip — una alternativa al Compresor para lograr "plenitud" sin tocar la dinámica. Drive fija cuán fuerte se empuja la señal hacia la curva; Mix la mezcla de vuelta con la señal seca sin procesar (saturación en paralelo).',
+      satCurveHint: 'Arrastra el punto arriba/abajo para fijar el Drive — la curva se dobla más al subir.', satEnableLabel: 'Activado — aplicar saturación',
+      envStatOrigDecay: 'Original — decaimiento pico→25% (golpe más fuerte de la ventana):', envStatMastDecay: 'Máster — decaimiento pico→25% (golpe más fuerte de la ventana):',
+      envFlagWarn: 'El {pct}% de esta ventana (segmentos rojos arriba) diverge notablemente de la forma del original — vale la pena escuchar ahí.', envFlagOk: 'El máster sigue de cerca la forma del original aquí ({pct}% marcado).',
+      legendNormal: 'Normal — bien equilibrado con las frecuencias vecinas', legendMildBump: 'Bulto leve — un pico moderado que destaca sobre sus vecinos',
+      legendSharpRes: 'Resonancia aguda — un pico estrecho que probablemente suene "apelmazado" o resonante', legendShadedZone: 'Zona sombreada (3.5–12kHz) — el tono de fondo coincide con la puntuación de Spectral Harshness',
+      liveMonitorNote: 'En vivo mientras suena — mismo método simplificado tipo BS.1770 que el panel resumen, calculado en tiempo real. Trátalo como una referencia en vivo aproximada, no un medidor certificado.',
+      platUnderTarget: db => `${db}dB por debajo del objetivo — la plataforma podría subirlo un poco.`,
+      platWithinTarget: 'Dentro del objetivo — a salvo de que lo bajen.',
+      platOverTarget: db => `${db}dB más alto que el objetivo — la plataforma probablemente lo bajará en esa cantidad.`,
+      platNoteTiktok: 'no oficial, varía', platNoteCd: 'sin techo real — referencia de máster alto en volumen',
+      platTruePeakWarn: 'Por encima del margen de seguridad de -1dBTP — la transcodificación con pérdida (MP3/AAC) en cualquier plataforma podría recortar.',
+      platformListEmpty: 'Pulsa Run Mastering para comparar este máster con los objetivos de sonoridad de cada plataforma.',
+      lufsApproxNote: 'Integrated LUFS usa una aproximación simplificada tipo ITU-R BS.1770 K-weighting. True Peak se estima mediante sobremuestreo 4x. Trata ambos como estimaciones cercanas, no mediciones certificadas.',
+      loudnessTargetNote: 'Elige un preajuste arriba y pulsa Run Mastering primero para escuchar el carácter tonal. Luego elige un objetivo aquí y pulsa Final Mastering — ajusta Makeup Gain (o Ratio/Ceiling para Louder) para acercarse a esa sonoridad, vuelve a renderizar y actualiza el resumen de arriba.',
+      suggestionListEmpty: 'Pulsa Run Mastering para obtener sugerencias concretas para alcanzar una sonoridad segura para streaming, o subir el volumen sin romper el equilibrio.',
+      processingNoteHtml: 'Todo el procesamiento ocurre en tu navegador. Tu archivo nunca se envía a un servidor. La codificación MP3 usa el códec <a href="https://lame.sourceforge.net" target="_blank" rel="noopener" style="color:var(--accent);">LAME</a> (port lamejs, LGPL-3.0), incluido directamente en este archivo — sin solicitudes externas.',
+      disclaimerHtml: 'Este es un <b>prototipo técnico</b> realmente funcional. El EQ, el compresor y el limitador se procesan de verdad con nodos de Web Audio API, y los medidores leen valores en tiempo real. El análisis de señal de arriba se calcula con mediciones DSP reales (pico/RMS, energía de banda, correlación estéreo) — no es un modelo de ML entrenado, así que trátalo como una guía aproximada y no como un informe profesional de sonoridad/masterización.',
+      envNeedMaster: 'Primero pulsa Run Mastering — necesitas un Máster para compararlo con el Original.', envWindowTooLong: 'Esa ventana se pasa del final de la pista — prueba con un Inicio o Duración más pequeños.',
       bandWidth: 'Stereo Width',
       descWidth: 'Divide la señal en mid (centro) y side (diferencia estéreo) y escala la cantidad de side. Por debajo de 100% se estrecha hacia mono; por encima de 100% amplía la imagen estéreo. Las fuentes mono no se ven afectadas porque no tienen señal side.',
       eqCurveHint: 'Arrastra los tres puntos del espectro para ajustar directamente Low Shelf / Mid Peak / High Shelf — los números del Mixing Desk de abajo se mueven junto con ellos.',
       gonioHint: 'Goniómetro en vivo — cuanto más se incline la forma hacia lo horizontal, más ancha es la imagen estéreo. Una línea vertical recta significa mono.',
       monTruePeak: 'Stereo True Peak', monLiveLufs: 'Live LUFS (momentary)',
       monAvgLufs: 'LUFS promedio (esta reproducción)', monCorrelation: 'Correlation', monBalance: 'Balance (L / R)',
+      monLiveSpectrum: 'Espectro en Vivo', monLra: 'Rango de Sonoridad (LRA)', monLraNote: 'Cuánto varía la sonoridad a lo largo del tema. Muy bajo (menos de ~3 LU) suele indicar que se aplanó por compresión/limitación fuerte.',
+      btnPopoutMonitor: '⇱ Ventana aparte',
+      monPoppedOutNote: 'Se separó en una ventana aparte — cierra esa ventana para que vuelva aquí.',
       waveLabelSpectrum: 'Espectro (promedio de toda la pista)',
       waveLabelOriginal: 'Forma de onda original', waveLabelMaster: 'Forma de onda del master',
       fmtWav: 'WAV (sin pérdida)', fmtMp3: 'MP3 (comprimido)',
       lblBitDepth: 'Bit Depth', lblSampleRate: 'Sample Rate', lblBitrate: 'Bitrate',
       targetStreaming: 'Streaming ≈ -14 LUFS', targetApple: 'Apple Music ≈ -16 LUFS', targetLouder: 'Louder',
-      presetManual: 'Bypass / Custom', presetNatural: 'Balanced & Natural', presetVocal: 'Vocal Front & Clear',
-      presetLowEnd: 'Deep Low-End (Hip-Hop / EDM)', presetSmooth: 'Smooth & Warm', presetLoud: 'Loud & Punchy (Max Volume)',
-      presetRhythmicLive: 'Live & Energetic', presetClassical: 'Wide Instrumental / Beat',
-      presetLofi: 'Lo-Fi & Vintage', presetStreamSafe: 'Streaming Safe (-14 LUFS)',
+      presetManual: 'Omitir / Personalizado', presetNatural: 'Equilibrado y Natural — "Limpio"', presetVocal: 'Voz al Frente y Clara — "Voz Arriba"',
+      presetLowEnd: 'Graves Profundos (Hip-Hop / EDM) — "Más Bajo"', presetSmooth: 'Suave y Cálido — "Suave"', presetLoud: 'Alto y Contundente (Vol. Máx.) — "Máx. Volumen"',
+      presetRhythmicLive: 'En Vivo y Enérgico — "Pegada en Vivo"', presetClassical: 'Instrumental Amplio / Beat — "Amplio y Aireado"',
+      presetLofi: 'Lo-Fi y Vintage — "Lo-Fi"', presetStreamSafe: 'Seguro para Streaming (-14 LUFS) — "Inicio Seguro"',
+      presetDescManual: 'Elige una dirección para ajustar el EQ y el compresor de una vez — igual puedes afinar cada control después.',
+      presetDescNatural: 'La opción más segura por defecto — pensada para pop clásico, acústico y cantautores. Mantiene la dinámica y el tono originales, solo equilibrando ligeramente lo que lo necesita.',
+      presetDescVocal: 'Despeja espacio en los medios-bajos y realza la presencia/volumen de la voz para que la letra se escuche al frente — la opción ideal para temas centrados en la voz.',
+      presetDescLowEnd: 'Refuerzo profundo de sub-bajos (55Hz) y compresión con pegada, pensado para Hip-Hop y EDM — mantiene el low-end firme y centrado para sistemas de club compatibles con mono.',
+      presetDescSmooth: 'Suaviza la sibilancia áspera de 3–6kHz y atenúa los agudos para una escucha más suave — ideal para R&B o cualquier tema con voz muy presente y sonidos "S" ásperos, o una mezcla brillante.',
+      presetDescLoud: 'Ajuste de máximo volumen — compresión agresiva y ganancia de compensación llevadas hacia una sonoridad competitiva de streaming/CD (aprox. -6 a -8 LUFS por sí sola). Combínalo con Loudness Target + Final Mastering para afinar un número exacto.',
+      presetDescRhythmicLive: 'Realza la pegada de graves (bombo/bajo) y agrega un toque de clic en los medios-altos para la batería, con un ataque más lento que deja pasar los transitorios — pensado para grabaciones de bandas en vivo y presentaciones enérgicas.',
+      presetDescClassical: 'Espacio amplio y aireado para temas instrumentales — beats, MR, covers de piano y piezas orquestales por igual. Compresión muy ligera que preserva la dinámica, con más ancho estéreo para una sensación abierta y espaciosa.',
+      presetDescLofi: 'Agudos apagados, realce cálido en los medios-bajos e imagen estéreo más estrecha para ese carácter polvoriento de cinta/vinilo — pensado para lo-fi hip-hop, chillhop y temas de estilo vintage.',
+      presetDescStreamSafe: 'Un punto de partida suave y apto para principiantes en plataformas de streaming. Combínalo con la opción "Streaming ≈ -14 LUFS" en Loudness Target y luego pulsa Final Mastering — la ruta más segura si no sabes por dónde empezar.',
       downloadWav: 'Descargar WAV', downloadMp3: 'Descargar MP3',
       showFullHistory: 'Ver historial completo', showRecentOnly: 'Ver solo lo reciente',
       descLowShelf: 'Aumenta o corta todo por debajo de la frecuencia elegida. Subirlo añade cuerpo/calidez; bajarlo quita barro o retumbo.',
@@ -4239,21 +4945,69 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       undoBtn: '↩ 1ステップ元に戻す',
       bandLowShelf: 'Low Shelf', bandMidPeak: 'Mid Peak', bandHighShelf: 'High Shelf',
       bandCompressor: 'Compressor', bandLoudness: 'Loudness / Limiter', bandDeharsher: 'De-Harsher',
+      bandBassProtect: 'ベースプロテクト',
+      descBassProtect: 'クロスオーバー以下の低域をメインコンプレッサーの前で完全に分離し、独自のThreshold/Ratio/Attack/Releaseで別々に圧縮します。ハイハットやチャント、シンバルなど他の音がメインコンプレッサーを強く押しても、低域(ベース/808)のサステインが巻き込まれて途切れるのを防ぎます — 2つの帯域が同じゲインリダクションを奪い合わなくなります。',
+      panelMyPresets: 'マイプリセット',
+      myPresetsNote: 'Mixing Deskの全スライダー(EQ、Compressor、Bass Protect、Loudness/Limiter、De-Harsher、Width)をこのブラウザに保存し、別の曲でも同じ開始点をすぐ呼び出せます。このパソコンにローカル保存されるだけで、どこにもアップロードされません。',
+      btnSaveCurrent: '💾 現在の設定を保存', btnLoad: '読み込み', btnDelete: '削除',
+      myPresetSelectPlaceholder: '— 保存済みプリセット —',
+      btnSaveToFile: '💾 設定をファイルに保存…', btnLoadFromFile: '📂 ファイルから設定を読み込み…', btnCopyClipboard: '📋 クリップボードにコピー',
+      panelEnvelopeViewer: 'エンベロープ / サステインビューア',
+      envViewerNote: '短い区間を拡大して、選んだ周波数帯域のエンベロープ(アタック+ディケイの形)をOriginalとMasterで重ねて表示します — 過圧縮でサステインが短くなっていないか、耳ではなく目で確認するツールです。比較するにはまずRun MasteringでMasterを作成してください。',
+      envBandLabel: '帯域', envBandLow: '低域 (20–250 Hz)', envBandMid: '中域 (250–4000 Hz)', envBandHigh: '高域 (4000 Hz+)', envBandFull: 'フルミックス',
+      envStartLabel: '開始 (秒)', envDurLabel: '長さ (秒)', btnRenderEnvelope: '📈 エンベロープを描画',
+      legendOriginal: 'オリジナル', legendMaster: 'マスター', legendFlagged: 'マスターがオリジナルと大きく異なる箇所',
+      envEmptyHint: '帯域/区間を選んでRender Envelopeを押してください。各カーブは自身のピーク基準で正規化されているので、音量ではなく減衰の形(SHAPE)を比較しています。',
+      compCurveHint: 'オレンジの点をドラッグするとThreshold、赤い点をドラッグするとRatioが変わります — 上のEQスペクトラムと同じ操作です。',
+      bassCurveHint: 'オレンジの点をドラッグするとThreshold、赤い点をドラッグするとRatioが変わります。',
+      enableLabel: '有効', bassEnableLabel: 'オン — 低域を別処理',
+      bandSaturation: 'サチュレーション', descSaturation: 'ソフトクリップカーブで倍音(ハーモニクス)を加えて、温かみ/密度感を出します — ダイナミクスに触れずに"充実感"を出す、Compressorとは違うアプローチです。Driveは信号をどれだけ強くカーブに押し込むか、Mixはその結果を未加工のドライ信号とどれだけ混ぜるかを設定します(パラレルサチュレーション)。',
+      satCurveHint: '点を上下にドラッグするとDriveが変わります — 上に行くほどカーブが強く曲がります。', satEnableLabel: 'オン — サチュレーションを適用',
+      envStatOrigDecay: 'オリジナル — ピーク→25%減衰時間(区間内最大ヒット基準):', envStatMastDecay: 'マスター — ピーク→25%減衰時間(区間内最大ヒット基準):',
+      envFlagWarn: 'この区間の{pct}%(上の赤い区間)がオリジナルの形状と大きく異なります — その部分を聴いてみてください。', envFlagOk: 'マスターはこの区間でオリジナルの形状によく追従しています({pct}%がフラグ対象)。',
+      legendNormal: 'Normal — 周囲の周波数と滑らかにバランスが取れている', legendMildBump: 'Mild bump — 隣接帯域よりやや突出した緩やかなピーク',
+      legendSharpRes: 'Sharp resonance — 狭く鋭いスパイク、「団子状」や共鳴した音になりやすい', legendShadedZone: 'Shaded zone (3.5–12kHz) — 背景の濃さがSpectral Harshnessスコアと連動',
+      liveMonitorNote: '再生中のライブ値 — 上部サマリーパネルと同じ簡易BS.1770方式でリアルタイム計算しています。正式な認証メーターではなく、あくまで簡易的なライブ参考値として扱ってください。',
+      platUnderTarget: db => `${db}dBターゲットより小さいです — プラットフォームが少し上げるかもしれません。`,
+      platWithinTarget: 'ターゲット範囲内 — ターンダウンされる心配はありません。',
+      platOverTarget: db => `${db}dBターゲットより大きいです — プラットフォームがその分下げる可能性が高いです。`,
+      platNoteTiktok: '非公式、変動あり', platNoteCd: '実質的な上限なし — ラウドマスター基準',
+      platTruePeakWarn: '-1dBTPの安全マージンを超えています — どのプラットフォームでも非可逆変換(MP3/AAC)時にクリップする可能性があります。',
+      platformListEmpty: 'Run Mastering を押して、このマスターを各プラットフォームのラウドネスターゲットと比較してください。',
+      lufsApproxNote: 'Integrated LUFSはITU-R BS.1770 K-weightingを簡略化した近似値です。True Peakは4倍オーバーサンプリングで推定しています。どちらも認証済みの測定値ではなく、近似値として扱ってください。',
+      loudnessTargetNote: '上でプリセットを選び、まずRun Masteringでトーンキャラクターを確認してください。その後ここでターゲットを選んでFinal Masteringを押すと — Makeup Gain(Louderの場合はRatio/Ceilingも)を微調整してそのラウドネスに近づけ、再レンダリングして上のサマリーを更新します。',
+      suggestionListEmpty: 'Run Mastering を押すと、ストリーミングに安全なラウドネスに到達する方法や、バランスを崩さずに音量を上げる方法について具体的な提案が得られます。',
+      processingNoteHtml: 'すべての処理はブラウザ内で行われます。ファイルがサーバーに送信されることはありません。MP3エンコードは<a href="https://lame.sourceforge.net" target="_blank" rel="noopener" style="color:var(--accent);">LAME</a>エンコーダー(lamejs移植版、LGPL-3.0)により行われ、このファイルに直接バンドルされているため外部リクエストは不要です。',
+      disclaimerHtml: 'これは実際に動作する<b>技術プロトタイプ</b>です。EQ、コンプレッサー、リミッターはWeb Audio APIノードで本当に処理されており、メーターもリアルタイムの値を読み取っています。上の信号分析は実際のDSP測定(ピーク/RMS、帯域エネルギー、ステレオ相関)で計算されたものであり、学習済みMLモデルではありません — 専門的なラウドネス/マスタリングレポートではなく、大まかな目安として扱ってください。',
+      envNeedMaster: 'まずRun Masteringを押してください — オリジナルと比較するにはMasterが必要です。', envWindowTooLong: 'その区間はトラックの終わりを超えています — StartかDurationをもっと小さくしてみてください。',
       bandWidth: 'Stereo Width',
       descWidth: '信号をmid（中央）とside（左右差分）に分割し、sideの量を調整します。100%未満でモノラルに近づき、100%を超えるとステレオイメージが広がります。モノラル音源はside成分がないため影響を受けません。',
       eqCurveHint: 'スペクトラム上の3つの点をドラッグすると、Low Shelf / Mid Peak / High Shelfを直接調整できます — 下のMixing Deskの数値も連動して動きます。',
       gonioHint: 'ライブゴニオメーターです — 形が横に広がるほどステレオの幅が広いことを意味し、まっすぐな縦線はモノラルを意味します。',
       monTruePeak: 'Stereo True Peak', monLiveLufs: 'Live LUFS (momentary)',
       monAvgLufs: '平均LUFS（今回の再生）', monCorrelation: 'Correlation', monBalance: 'Balance (L / R)',
+      monLiveSpectrum: 'ライブスペクトラム', monLra: 'ラウドネスレンジ (LRA)', monLraNote: '曲全体でラウドネスがどれだけ変動するかを示します。非常に低い(目安3 LU未満)場合、強い圧縮/リミッティングで平坦に潰されている可能性があります。',
+      btnPopoutMonitor: '⇱ 別ウィンドウ',
+      monPoppedOutNote: '別ウィンドウに切り離されました — そのウィンドウを閉じるとここに戻ります。',
       waveLabelSpectrum: 'スペクトラム（トラック全体の平均）',
       waveLabelOriginal: 'オリジナル波形', waveLabelMaster: 'マスター波形',
       fmtWav: 'WAV（ロスレス）', fmtMp3: 'MP3（圧縮）',
       lblBitDepth: 'Bit Depth', lblSampleRate: 'Sample Rate', lblBitrate: 'Bitrate',
       targetStreaming: 'Streaming ≈ -14 LUFS', targetApple: 'Apple Music ≈ -16 LUFS', targetLouder: 'Louder',
-      presetManual: 'Bypass / Custom', presetNatural: 'Balanced & Natural', presetVocal: 'Vocal Front & Clear',
-      presetLowEnd: 'Deep Low-End (Hip-Hop / EDM)', presetSmooth: 'Smooth & Warm', presetLoud: 'Loud & Punchy (Max Volume)',
-      presetRhythmicLive: 'Live & Energetic', presetClassical: 'Wide Instrumental / Beat',
-      presetLofi: 'Lo-Fi & Vintage', presetStreamSafe: 'Streaming Safe (-14 LUFS)',
+      presetManual: 'バイパス / カスタム', presetNatural: 'バランス & ナチュラル — "クリーン"', presetVocal: 'ボーカル前面 & クリア — "ボーカル強調"',
+      presetLowEnd: '深い低域 (ヒップホップ / EDM) — "ベース強化"', presetSmooth: 'スムース & ウォーム — "ソフト"', presetLoud: 'ラウド & パンチ (最大音量) — "最大ラウド"',
+      presetRhythmicLive: 'ライブ & エナジェティック — "ライブパンチ"', presetClassical: 'ワイドインストゥルメンタル / ビート — "ワイド & エアリー"',
+      presetLofi: 'Lo-Fi & ヴィンテージ — "Lo-Fi"', presetStreamSafe: 'ストリーミングセーフ (-14 LUFS) — "セーフスタート"',
+      presetDescManual: '下のEQ/コンプレッサーを一括設定する方向を選んでください — 選択後もスライダーや数値は自由に微調整できます。',
+      presetDescNatural: '最も安全なデフォルト — オールドスクールポップ、アコースティック、シンガーソングライター向け。原曲のダイナミクスとトーンを保ちながら、本当に必要な部分だけ軽く整えます。',
+      presetDescVocal: 'ローミッド帯域にスペースを作り、ボーカルの存在感/音量を持ち上げて歌詞を前面に出します — ボーカル主体の曲の定番選択です。',
+      presetDescLowEnd: '深いサブベース(55Hz)のブーストとパンチのある圧縮で、ヒップホップとEDM向けに設計 — モノ互換のクラブシステムでも低域がタイトでセンターにまとまります。',
+      presetDescSmooth: '3〜6kHzの耳障りなシビランスを抑え、高域を落として柔らかく聴きやすくします — R&Bや、"サ"行が強い/全体的に明るいボーカル中心の曲に最適です。',
+      presetDescLoud: '最大ラウドネス設定 — アグレッシブな圧縮とメイクアップゲインで、競争力のあるストリーミング/CDラウドネス(単体でおよそ-6〜-8 LUFS)まで押し上げます。正確な数値に合わせるには、下のLoudness Target + Final Masteringを続けて使ってください。',
+      presetDescRhythmicLive: 'キック/ベースの低域パンチを強調し、ドラム用にアッパーミッドのクリック感を少し加えます。アタックを遅めにしてトランジェントを通す — ライブバンド録音やエネルギッシュな演奏向けです。',
+      presetDescClassical: 'インストゥルメンタル曲(ビート、MR、ピアノカバー、オーケストラ作品)向けの広く開放的な空間。非常に軽い圧縮でダイナミクスを保ちながら、ステレオ幅を広げて開放感のある仕上がりに。',
+      presetDescLofi: '高域を鈍らせ、ローミッドを温かくブースト、ステレオイメージを少し狭めて、ホコリっぽいテープ/ヴァイナルの質感を演出 — Lo-Fiヒップホップ、チルホップ、ヴィンテージスタイルの曲向けです。',
+      presetDescStreamSafe: 'ストリーミングプラットフォーム向けの、初心者にも優しい穏やかな出発点。下のLoudness Targetで"Streaming ≈ -14 LUFS"と組み合わせてFinal Masteringを押してください — どこから始めればいいか分からない場合の最も安全な選択です。',
       downloadWav: 'WAVをダウンロード', downloadMp3: 'MP3をダウンロード',
       showFullHistory: 'すべての履歴を表示', showRecentOnly: '最近のみ表示',
       descLowShelf: '設定した周波数より下全体をブースト/カットします。上げると低音の厚み・温かみが増し、下げるとこもりや低音の濁りが取れます。',
@@ -4345,21 +5099,69 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       undoBtn: '↩ 撤销一步',
       bandLowShelf: 'Low Shelf', bandMidPeak: 'Mid Peak', bandHighShelf: 'High Shelf',
       bandCompressor: 'Compressor', bandLoudness: 'Loudness / Limiter', bandDeharsher: 'De-Harsher',
+      bandBassProtect: '低音保护',
+      descBassProtect: '在主压缩器之前，将分频点以下的所有低频完全分离出来，用独立的Threshold/Ratio/Attack/Release单独压缩。防止其他部分(镲片、和声、镲)的响亮打击音在主压缩器的增益衰减中连带压垮低音/808的延音 — 两个频段不再争夺同一份增益衰减。',
+      panelMyPresets: '我的预设',
+      myPresetsNote: '将Mixing Desk的所有滑块(EQ、压缩器、低音保护、响度/限制器、De-Harsher、宽度)保存到此浏览器，方便在其他曲目中重新加载相同的起点设置。仅保存在本机本地 — 不会上传到任何地方。',
+      btnSaveCurrent: '💾 保存当前设置', btnLoad: '加载', btnDelete: '删除',
+      myPresetSelectPlaceholder: '— 已保存的预设 —',
+      btnSaveToFile: '💾 将设置保存为文件…', btnLoadFromFile: '📂 从文件加载设置…', btnCopyClipboard: '📋 复制到剪贴板',
+      panelEnvelopeViewer: '包络 / 延音查看器',
+      envViewerNote: '放大一小段区间，将所选频段的包络(起音+衰减形状)在Original与Master之间叠加显示 — 这正是用来诊断过度压缩、"延音是否被削短"的可视化检查方式，无需只靠耳朵判断。需要先Run Mastering生成Master才能比较。',
+      envBandLabel: '频段', envBandLow: '低频 (20–250 Hz)', envBandMid: '中频 (250–4000 Hz)', envBandHigh: '高频 (4000 Hz+)', envBandFull: '完整混音',
+      envStartLabel: '起始 (秒)', envDurLabel: '时长 (秒)', btnRenderEnvelope: '📈 绘制包络',
+      legendOriginal: '原始', legendMaster: '母带', legendFlagged: '母带在此处与原始明显不同',
+      envEmptyHint: '选择频段/区间后点击Render Envelope。每条曲线都按自身峰值归一化 — 比较的是衰减的形状(SHAPE)，而非音量。',
+      compCurveHint: '拖动橙色点设置Threshold，拖动红色点设置Ratio — 与上方EQ频谱操作方式相同。',
+      bassCurveHint: '拖动橙色点设置Threshold，拖动红色点设置Ratio。',
+      enableLabel: '启用', bassEnableLabel: '开启 — 单独处理低频',
+      bandSaturation: '饱和', descSaturation: '通过软削波曲线添加谐波温暖感/密度 — 是Compressor之外获得"饱满感"而不影响动态的另一种方式。Drive决定信号被推入曲线的强度；Mix决定将处理结果与未处理的干信号混合多少(并联饱和)。',
+      satCurveHint: '上下拖动该点可设置Drive — 越往上曲线弯曲得越厉害。', satEnableLabel: '开启 — 应用饱和',
+      envStatOrigDecay: '原始 — 峰值→25%衰减时间(区间内最响的一次打击):', envStatMastDecay: '母带 — 峰值→25%衰减时间(区间内最响的一次打击):',
+      envFlagWarn: '此区间中有{pct}%(上方红色段)与原始形状有明显差异 — 值得听一下那部分。', envFlagOk: '母带在此区间较好地贴合了原始的形状({pct}%被标记)。',
+      legendNormal: 'Normal — 与周围频率平滑均衡', legendMildBump: 'Mild bump — 相对邻近频段略微突出的适度峰值',
+      legendSharpRes: 'Sharp resonance — 狭窄尖锐的峰值，听感上容易"扎堆"或产生共振', legendShadedZone: 'Shaded zone (3.5–12kHz) — 背景底色深浅对应Spectral Harshness分数',
+      liveMonitorNote: '播放时的实时数值 — 与上方汇总面板相同的简化BS.1770方式，实时计算。请视为粗略的实时参考，而非经过认证的专业电平表。',
+      platUnderTarget: db => `${db}dB低于目标 — 平台可能会稍微调高。`,
+      platWithinTarget: '在目标范围内 — 不会被平台调低。',
+      platOverTarget: db => `${db}dB高于目标 — 平台很可能会将其调低约这个幅度。`,
+      platNoteTiktok: '非官方，因情况而异', platNoteCd: '无实际上限 — 响亮母带参考值',
+      platTruePeakWarn: '超过了-1dBTP安全余量 — 在任何平台上进行有损转码(MP3/AAC)都可能产生削波。',
+      platformListEmpty: '点击Run Mastering，将此母带与各平台的响度目标进行对比。',
+      lufsApproxNote: 'Integrated LUFS采用简化版的ITU-R BS.1770 K计权近似算法。True Peak通过4倍过采样估算得出。两者都请视为接近值，而非经过认证的测量结果。',
+      loudnessTargetNote: '先在上方选择一个预设并点击Run Mastering来听听音色特点。然后在这里选择目标并点击Final Mastering — 系统会微调Makeup Gain(Louder模式下还会调整Ratio/Ceiling)以接近该响度，重新渲染并更新上方摘要。',
+      suggestionListEmpty: '点击Run Mastering，获取达到流媒体安全响度、或在不破坏平衡的前提下提高音量的具体建议。',
+      processingNoteHtml: '所有处理均在您的浏览器中完成。您的文件不会被发送到任何服务器。MP3编码由<a href="https://lame.sourceforge.net" target="_blank" rel="noopener" style="color:var(--accent);">LAME</a>编码器(lamejs移植版，LGPL-3.0)提供支持，直接打包在此文件中 — 无需任何外部请求。',
+      disclaimerHtml: '这是一个真实可用的<b>技术原型</b>。EQ、压缩器和限制器均通过Web Audio API节点真实处理，各项表头读取的是实时数值。上方的信号分析基于真实的DSP测量(峰值/RMS、频段能量、立体声相关性)计算得出 — 并非训练好的机器学习模型，因此请将其视为粗略参考，而非专业的响度/母带处理报告。',
+      envNeedMaster: '请先点击Run Mastering — 需要有母带才能与原始进行对比。', envWindowTooLong: '该区间超出了曲目末尾 — 请尝试更小的起始或时长。',
       bandWidth: 'Stereo Width',
       descWidth: '将信号拆分为 mid（中央）和 side（立体声差异）两部分，并调整 side 的量。低于 100% 会趋向单声道；高于 100% 会拓宽立体声图像。单声道音源本身没有 side 成分，因此不受影响。',
       eqCurveHint: '拖动频谱上的三个点即可直接调整 Low Shelf / Mid Peak / High Shelf——下方 Mixing Desk 的数值会同步变化。',
       gonioHint: '实时相位表（Goniometer）——形状越偏向水平，立体声宽度越宽；一条竖直的直线代表单声道。',
       monTruePeak: 'Stereo True Peak', monLiveLufs: 'Live LUFS (momentary)',
       monAvgLufs: '平均 LUFS（本次播放）', monCorrelation: 'Correlation', monBalance: 'Balance (L / R)',
+      monLiveSpectrum: '实时频谱', monLra: '响度范围 (LRA)', monLraNote: '表示整首曲目响度的变化幅度。数值非常低(大致低于3 LU)通常意味着被强力压缩/限幅压得很平。',
+      btnPopoutMonitor: '⇱ 弹出窗口',
+      monPoppedOutNote: '已分离到单独的窗口 — 关闭该窗口即可返回此处。',
       waveLabelSpectrum: '频谱（全曲平均）',
       waveLabelOriginal: '原始波形', waveLabelMaster: '母带波形',
       fmtWav: 'WAV（无损）', fmtMp3: 'MP3（压缩）',
       lblBitDepth: 'Bit Depth', lblSampleRate: 'Sample Rate', lblBitrate: 'Bitrate',
       targetStreaming: 'Streaming ≈ -14 LUFS', targetApple: 'Apple Music ≈ -16 LUFS', targetLouder: 'Louder',
-      presetManual: 'Bypass / Custom', presetNatural: 'Balanced & Natural', presetVocal: 'Vocal Front & Clear',
-      presetLowEnd: 'Deep Low-End (Hip-Hop / EDM)', presetSmooth: 'Smooth & Warm', presetLoud: 'Loud & Punchy (Max Volume)',
-      presetRhythmicLive: 'Live & Energetic', presetClassical: 'Wide Instrumental / Beat',
-      presetLofi: 'Lo-Fi & Vintage', presetStreamSafe: 'Streaming Safe (-14 LUFS)',
+      presetManual: '旁通 / 自定义', presetNatural: '均衡自然 — "干净"', presetVocal: '人声前置清晰 — "人声突出"',
+      presetLowEnd: '深沉低音 (嘻哈 / EDM) — "低音增强"', presetSmooth: '柔和温暖 — "柔和"', presetLoud: '响亮有力 (最大音量) — "最大音量"',
+      presetRhythmicLive: '现场活力 — "现场冲击力"', presetClassical: '宽阔纯音乐/伴奏 — "宽广通透"',
+      presetLofi: 'Lo-Fi怀旧 — "Lo-Fi"', presetStreamSafe: '流媒体安全 (-14 LUFS) — "安全起点"',
+      presetDescManual: '选择一个方向，一次性设置下方的EQ和压缩器 — 之后仍可自由微调每个滑块或数值。',
+      presetDescNatural: '最安全的默认选项 — 适用于老派流行、原声和创作歌手类曲目。保留原始动态和音色，只轻微调整真正需要的部分。',
+      presetDescVocal: '在中低频腾出空间，提升人声的临场感/音量，让歌词更靠前 — 人声主导曲目的首选。',
+      presetDescLowEnd: '深沉的次低音(55Hz)增强与富有冲击力的压缩，专为嘻哈和EDM设计 — 让低音紧实居中，兼容单声道的俱乐部音响系统。',
+      presetDescSmooth: '抑制3~6kHz刺耳的齿音并削减高频，让听感更柔和轻松 — 适合R&B或任何"丝"音较重、整体偏亮的人声类曲目。',
+      presetDescLoud: '最大响度设置 — 激进的压缩和补偿增益，推向具有竞争力的流媒体/CD响度(单独约-6至-8 LUFS)。之后可搭配Loudness Target + Final Mastering精确调到目标数值。',
+      presetDescRhythmicLive: '增强底鼓/贝斯的低频冲击力，为鼓组增添一点中高频的click感，Attack调得较慢以放行瞬态 — 专为现场乐队录音和充满活力的演出设计。',
+      presetDescClassical: '为纯音乐曲目(伴奏、MR、钢琴翻奏、管弦乐等)营造宽广通透的空间感。极轻的压缩保留动态，并加宽立体声宽度，带来开阔的空间感。',
+      presetDescLofi: '柔化高频、温暖增强中低频，并收窄立体声图像，营造复古磁带/黑胶的质感 — 专为Lo-Fi嘻哈、chillhop和复古风格曲目设计。',
+      presetDescStreamSafe: '面向流媒体平台、对新手友好的温和起点。搭配下方Loudness Target中的"Streaming ≈ -14 LUFS"选项，然后点击Final Mastering — 如果不确定从哪里开始，这是最安全的选择。',
       downloadWav: '下载 WAV', downloadMp3: '下载 MP3',
       showFullHistory: '查看完整历史', showRecentOnly: '仅查看最近记录',
       descLowShelf: '提升或削减所设定频率以下的所有内容。调高会增加低频的厚度/温暖感；调低可以去除浑浊或隆隆声。',
@@ -4440,8 +5242,10 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     updateTransportIcons();
     updateDlBtnLabel();
     renderHistoryLog();
+    if(typeof currentPresetDescText === 'function') document.getElementById('presetDesc').textContent = currentPresetDescText();
     if(typeof audioBuffer !== 'undefined' && audioBuffer) analyzeBuffer(audioBuffer);
     if(typeof lastMeasuredLufs !== 'undefined' && lastMeasuredLufs != null) updateDownloadSuggestions(lastMeasuredLufs);
+    if(typeof lastMeasuredLufs !== 'undefined' && lastMeasuredLufs != null && typeof lastMeasuredPeak !== 'undefined' && lastMeasuredPeak != null) updatePlatformChecklist(lastMeasuredLufs, lastMeasuredPeak);
   }
 
   document.getElementById('langBtn').addEventListener('click', ()=>{
