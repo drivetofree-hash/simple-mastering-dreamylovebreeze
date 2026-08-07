@@ -442,6 +442,16 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   .readout .v{ font-family: var(--mono); font-size: 16px; margin-top: 3px; color: var(--accent); }
 
   .wave-slot{ margin-top: 14px; }
+  /* Original/Master waveforms + the fixed goniometer side panel, side by
+     side. Wraps to stacked on narrow viewports since gonio-side-panel has
+     a sane min-width and wave-stack is allowed to shrink. */
+  .wave-with-gonio{ display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; margin-top:14px; }
+  .wave-stack{ flex:1 1 320px; min-width:220px; }
+  .wave-stack .wave-slot:first-child{ margin-top:0; }
+  .gonio-side-panel{
+    flex:0 0 132px; background: var(--panel-2); border:1px solid var(--line); border-radius:9px;
+    padding:12px 10px 10px;
+  }
   .wave-label{
     font-family: var(--mono); font-size: 10.5px; letter-spacing:.08em; text-transform:uppercase;
     color: var(--text-dim); margin-bottom: 6px;
@@ -765,6 +775,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   }
   .band-card .band-title .freq-tag{ font-family: var(--mono); font-weight:400; font-size:10.5px; color:var(--text-dim); }
   .band-desc{
+    display:none; /* moved into the Glossary popup (see "❓ Glossary" button) so cards
+      stay compact — this text is still in the DOM, just not shown inline anymore */
     font-size: 10.5px; color: var(--text-dim); line-height:1.45; margin: -4px 0 12px;
     padding-bottom: 10px; border-bottom: 1px solid var(--line);
   }
@@ -789,6 +801,52 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   }
   .dl-btn:disabled{ background: var(--line); color: var(--text-dim); cursor:not-allowed; }
   .dl-btn:not(:disabled):hover{ filter:brightness(1.06); }
+  /* shown on a "Pop out X" button while that window is currently open — same
+     button doubles as "bring it to front" (click focuses instead of re-opening) */
+  .dl-btn.popout-active{ background: var(--panel-2); color: var(--accent); border:1px solid var(--accent); }
+  .dl-btn.popout-active::after{ content:' \25CF'; font-size:8px; vertical-align:middle; }
+  /* EQ / Dynamics / Live Monitor pop-out buttons, unified into the Mastering
+     panel title bar (see "⇈ Show All" + popoutBar) — these are the only
+     controls for popping those sections out now. */
+  .popout-chip-btn{ font-size:10.5px; padding:5px 9px; }
+
+  /* filename-confirmation modal shown after the native folder picker, for
+     the Download-Bundle flow (see #bundleNameOverlay) */
+  .bundle-modal-overlay{
+    position:fixed; inset:0; background:rgba(5,6,9,0.72); display:flex;
+    align-items:center; justify-content:center; z-index:500; padding:20px;
+  }
+  .bundle-modal-overlay.hidden{ display:none; }
+  .bundle-modal{
+    background: var(--panel-2); border:1px solid var(--line); border-radius:12px;
+    padding:22px; width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  }
+  .bundle-modal-title{ font-size:15px; font-weight:700; color:var(--text); margin-bottom:6px; }
+  .bundle-modal-sub{ font-size:11.5px; color:var(--text-dim); line-height:1.5; margin-bottom:14px; }
+  .bundle-modal-input{
+    width:100%; box-sizing:border-box; padding:10px 12px; font-size:14px;
+    background: var(--bg); color: var(--text); border:1px solid var(--line); border-radius:7px;
+    font-family:'JetBrains Mono','SF Mono',Consolas,monospace;
+  }
+  .bundle-modal-input:focus{ outline:none; border-color: var(--accent); }
+  .bundle-modal-preview{ font-size:10.5px; color:var(--text-dim); margin-top:8px; line-height:1.6; word-break:break-all; }
+  .bundle-modal-label{ display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-dim); margin:14px 0 6px; }
+  .bundle-modal-label:first-of-type{ margin-top:0; }
+  .bundle-modal-folder-status{ font-size:11px; color:var(--text-dim); margin-top:6px; word-break:break-all; }
+  .bundle-modal-folder-status.chosen{ color:var(--accent); }
+  .bundle-modal-btns{ display:flex; gap:10px; margin-top:18px; }
+  .bundle-modal-btns .dl-btn{ flex:1; }
+  .bundle-modal-btns .dl-btn:disabled{ background:var(--line); color:var(--text-dim); cursor:not-allowed; opacity:0.6; }
+
+  /* corner tick labels on the Live Spectrum meter — Y axis (dB, top/bottom-
+     left) shows the AnalyserNode's default -30dB..-100dB range that
+     getByteFrequencyData scales into 0..255; X axis (Hz, along the bottom)
+     shows the ~20Hz-20kHz audible range the 56 log-spaced bars cover. */
+  .spectrum-axis-label{
+    position:absolute; font-size:18px; font-weight:700; color: var(--text-dim); letter-spacing:0.02em;
+    pointer-events:none; font-family:'JetBrains Mono','SF Mono',Consolas,monospace;
+    text-shadow: 0 0 4px var(--bg), 0 0 4px var(--bg), 0 0 4px var(--bg);
+  }
 
   .note{
     font-size: 11px; color: var(--text-dim); text-align:center; margin-top:10px;
@@ -1026,31 +1084,36 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     </div>
 
     <div class="panel">
-      <div class="panel-title" data-i18n="panelMyPresets">My Presets</div>
-      <div class="note" style="margin-bottom:10px;" data-i18n="myPresetsNote">Saves every Mixing Desk slider (EQ, Compressor, Bass Protect, Loudness/Limiter, De-Harsher, Width) to this browser so you can reload the exact same starting point on a different song. Stored locally on this computer only — nothing is uploaded anywhere.</div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-        <input type="text" id="myPresetName" placeholder="Preset name, e.g. Trap Anthem v1" style="flex:1; min-width:180px; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:7px; padding:9px 12px; font-size:13px;">
-        <button class="dl-btn" id="myPresetSaveBtn" style="width:auto; padding:9px 16px;" data-i18n="btnSaveCurrent">💾 Save Current</button>
+      <div class="panel-title" data-i18n="panelEditHistory">Edit History</div>
+      <div class="history-controls">
+        <button class="dl-btn" id="undoBtn" style="width:auto; padding:9px 18px; background:var(--panel-2); color:var(--accent); border:1px solid var(--line);" disabled data-i18n="undoBtn">↩ Undo one step</button>
+        <button class="reset-btn" id="historyToggleBtn" style="display:none;">Show full history ▾</button>
       </div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px;">
-        <select class="preset-select" id="myPresetSelect" style="flex:1; min-width:180px; margin:0;">
-          <option value="" data-i18n="myPresetSelectPlaceholder">— Saved presets —</option>
-        </select>
-        <button class="dl-btn" id="myPresetLoadBtn" style="width:auto; padding:9px 16px;" data-i18n="btnLoad">Load</button>
-        <button class="dl-btn" id="myPresetDeleteBtn" style="width:auto; padding:9px 16px; border-color:var(--hot); color:var(--hot);" data-i18n="btnDelete">Delete</button>
-      </div>
-      <div style="font-size:11.5px; color:var(--accent); margin-top:6px; min-height:14px;" id="myPresetStatus"></div>
+      <div class="history-log" id="historyLog"><div class="history-empty">No edits yet — upload a track and adjust the Mixing Desk to start a history.</div></div>
       <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line); display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
         <button class="dl-btn" id="saveSettingsFileBtn" style="width:auto; padding:9px 16px;" data-i18n="btnSaveToFile">💾 Save Settings to File…</button>
         <button class="dl-btn" id="loadSettingsFileBtn" style="width:auto; padding:9px 16px;" data-i18n="btnLoadFromFile">📂 Load Settings from File…</button>
         <button class="dl-btn" id="copySettingsBtn" style="width:auto; padding:9px 16px;" data-i18n="btnCopyClipboard">📋 Copy to Clipboard</button>
+        <button class="dl-btn" id="logDownloadBtn" style="width:auto; padding:9px 16px; background:var(--panel-2); color:var(--accent); border:1px solid var(--accent);" data-i18n="btnLogDownload">📜 Download Log</button>
         <span style="font-size:11.5px; color:var(--text-dim);" id="copySettingsStatus"></span>
       </div>
+      <div class="note" style="margin-top:10px;" data-i18n="logNote">The Log (unlike Undo) never overwrites anything — it's a running record of every edit, preset choice, undo, and jump you make, in order, even ones you later undid. Useful as a provenance record of how much of the final result came from manual, human-directed work.</div>
     </div>
 
     <div class="desk-row">
     <div class="panel">
-      <div class="panel-title" data-i18n="panelMastering">Mastering</div>
+      <div class="panel-title" style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+        <span data-i18n="panelMastering">Mastering</span>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <div id="popoutBar" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <button class="dl-btn" id="showAllPopoutsBtn" style="width:auto; padding:5px 10px; font-size:11px;" data-i18n="btnShowAllPopouts">⇈ Show All</button>
+            <button class="dl-btn popout-chip-btn" id="popoutEqBtn" style="width:auto; padding:5px 10px; font-size:11px;" data-i18n="chipEq">EQ</button>
+            <button class="dl-btn popout-chip-btn" id="popoutDeskBtn" style="width:auto; padding:5px 10px; font-size:11px;" data-i18n="chipDesk">Dynamics</button>
+            <button class="dl-btn popout-chip-btn" id="popoutMonitorBtn" style="width:auto; padding:5px 10px; font-size:11px;" data-i18n="chipMonitor">Live Monitor</button>
+          </div>
+          <button class="dl-btn" id="glossaryBtn" style="width:auto; padding:5px 10px; font-size:11px;" data-i18n="btnGlossary">❓ Glossary</button>
+        </div>
+      </div>
 
       <div class="wave-slot">
         <div class="wave-label" data-i18n="waveLabelSpectrum">Spectrum (averaged across the track)</div>
@@ -1069,20 +1132,45 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         </div>
       </div>
 
-      <div class="wave-slot">
-        <div class="wave-label" data-i18n="waveLabelOriginal">Original waveform</div>
-        <div class="wave-wrap" id="waveWrapA">
-          <canvas id="waveCanvasA"></canvas>
-          <div class="wave-playhead" id="wavePlayheadA"></div>
-        </div>
-      </div>
+      <div class="wave-with-gonio">
+        <div class="wave-stack">
+          <div class="wave-slot">
+            <div class="wave-label" data-i18n="waveLabelOriginal">Original waveform</div>
+            <div class="wave-wrap" id="waveWrapA">
+              <canvas id="waveCanvasA"></canvas>
+              <div class="wave-playhead" id="wavePlayheadA"></div>
+            </div>
+          </div>
 
-      <div class="wave-slot">
-        <div class="wave-label" data-i18n="waveLabelMaster">Master waveform</div>
-        <div class="wave-wrap" id="waveWrapB">
-          <canvas id="waveCanvasB"></canvas>
-          <div class="wave-playhead" id="wavePlayheadB"></div>
-          <div class="wave-empty" id="waveEmptyB">Click Run Mastering to see the result waveform here</div>
+          <div class="wave-slot">
+            <div class="wave-label" data-i18n="waveLabelMaster">Master waveform</div>
+            <div class="wave-wrap" id="waveWrapB">
+              <canvas id="waveCanvasB"></canvas>
+              <div class="wave-playhead" id="wavePlayheadB"></div>
+              <div class="wave-empty" id="waveEmptyB">Click Run Mastering to see the result waveform here</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fixed position by design (never part of the Mixing Desk pop-out
+             groups) — this canvas used to live inside the "Stereo Width"
+             card, which meant it got physically moved to a different
+             Document every time that card's group popped out, and moving a
+             <canvas> across documents can leave its 2D context silently
+             broken on the way back. Keeping it here means it's never
+             relocated, so it can't break that way regardless of how many
+             times Dynamics gets popped out and closed. The Width slider
+             itself still lives in — and still pops out with — the Stereo
+             Width card, this is just the live visual. -->
+        <div class="gonio-side-panel">
+          <div class="mon-label" style="text-align:center;" data-i18n="gonioSideTitle">Stereo Width</div>
+          <div class="gonio-wrap">
+            <canvas id="gonioCanvas" class="gonio-canvas"></canvas>
+            <span class="gonio-label gonio-l">L</span>
+            <span class="gonio-label gonio-m">M</span>
+            <span class="gonio-label gonio-r">R</span>
+          </div>
+          <div class="note" style="margin-top:6px;" data-i18n="gonioHint">Live goniometer — the more the shape leans toward horizontal, the wider the stereo image. A straight vertical line means mono.</div>
         </div>
       </div>
 
@@ -1100,12 +1188,15 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       <div class="panel monitor-panel">
         <div class="panel-title" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
           <span data-i18n="panelLiveMonitor">Live Monitor</span>
-          <button class="dl-btn" id="popoutMonitorBtn" style="width:auto; padding:5px 10px; font-size:11px;" data-i18n="btnPopoutMonitor">⇱ Pop out</button>
         </div>
         <div id="monitorPanelBody">
         <div class="mon-label" style="text-align:center;" data-i18n="monLiveSpectrum">Live Spectrum</div>
         <div style="position:relative; height:110px; background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:8px; margin-bottom:16px; overflow:hidden;">
           <canvas id="liveSpectrumCanvas" style="width:100%; height:100%; display:block;"></canvas>
+          <span class="spectrum-axis-label" style="top:2px; left:5px;">-30dB</span>
+          <span class="spectrum-axis-label" style="bottom:2px; left:5px;">-100dB</span>
+          <span class="spectrum-axis-label" style="top:2px; right:5px;">20Hz</span>
+          <span class="spectrum-axis-label" style="bottom:2px; right:5px;">20kHz</span>
         </div>
         <div class="mon-label" style="text-align:center;" data-i18n="monTruePeak">Stereo True Peak</div>
         <div class="vmeter-row">
@@ -1154,15 +1245,16 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         </div>
         <div class="note" style="margin-top:2px;" data-i18n="liveMonitorNote">Live while playing — same simplified BS.1770-style method as the summary panel, computed in real time. Treat as a rough live reference, not a certified meter.</div>
         </div>
-        <div id="monitorPoppedOutNote" class="note" style="display:none; text-align:center; padding:20px 0;" data-i18n="monPoppedOutNote">Popped out to a separate window — close that window to bring this panel back here.</div>
       </div>
     </div>
 
     <div class="panel">
-      <div class="panel-title" data-i18n="panelMixingDesk">Mixing Desk</div>
+      <div class="panel-title" style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+        <span data-i18n="panelMixingDesk">Mixing Desk</span>
+      </div>
       <div class="band-grid">
 
-        <div class="band-card">
+        <div class="band-card" data-group="eq">
           <div class="band-title"><span data-i18n="bandLowShelf">Low Shelf</span> <span class="freq-tag" id="lowFreqTag">100 Hz</span></div>
           <div class="band-desc" data-i18n="descLowShelf">Boosts or cuts everything below the frequency you set. Raising it adds body/warmth; cutting it removes mud or rumble.</div>
           <div class="comp-curve-wrap">
@@ -1180,7 +1272,34 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
           </div>
         </div>
 
-        <div class="band-card">
+        <div class="band-card" data-group="eq">
+          <div class="band-title"><span data-i18n="bandSub">Sub</span> <span class="freq-tag">60 Hz</span></div>
+          <div class="band-desc" data-i18n="descSub">Narrow band right around the sub-bass fundamental. Separate from Low Shelf, which cuts everything below its corner — this only touches 60Hz itself, so you can shape the sub without dragging Bass/Low-Mid down with it.</div>
+          <div class="prow">
+            <div class="prow-head"><span class="lbl">Gain</span><span class="num-input-group"><input class="num-input" type="number" id="subGainNum" step="0.1"><span class="unit-suffix">dB</span></span></div>
+            <input type="range" id="subGainSlider" min="-9" max="9" step="0.1" value="0">
+          </div>
+        </div>
+
+        <div class="band-card" data-group="eq">
+          <div class="band-title"><span data-i18n="bandBass">Bass</span> <span class="freq-tag">150 Hz</span></div>
+          <div class="band-desc" data-i18n="descBass">Narrow band around the body of the bass/808 (not the sub fundamental, not the low-mid mud) — punch and weight live here.</div>
+          <div class="prow">
+            <div class="prow-head"><span class="lbl">Gain</span><span class="num-input-group"><input class="num-input" type="number" id="bassGainNum" step="0.1"><span class="unit-suffix">dB</span></span></div>
+            <input type="range" id="bassGainSlider" min="-9" max="9" step="0.1" value="0">
+          </div>
+        </div>
+
+        <div class="band-card" data-group="eq">
+          <div class="band-title"><span data-i18n="bandLowMid">Low-Mid</span> <span class="freq-tag">400 Hz</span></div>
+          <div class="band-desc" data-i18n="descLowMid">The classic "boxy/muddy" zone. Cutting here clears mud without touching Sub or Bass — this is the band to reach for instead of a broad Low Shelf cut when only this range feels congested.</div>
+          <div class="prow">
+            <div class="prow-head"><span class="lbl">Gain</span><span class="num-input-group"><input class="num-input" type="number" id="lowmidGainNum" step="0.1"><span class="unit-suffix">dB</span></span></div>
+            <input type="range" id="lowmidGainSlider" min="-9" max="9" step="0.1" value="0">
+          </div>
+        </div>
+
+        <div class="band-card" data-group="eq">
           <div class="band-title"><span data-i18n="bandMidPeak">Mid Peak</span> <span class="freq-tag" id="midFreqTag">1000 Hz</span></div>
           <div class="band-desc" data-i18n="descMidPeak">Targets a narrow band around the frequency (width set by Q). Used to bring vocals forward or dial out boxy/harsh mids.</div>
           <div class="comp-curve-wrap">
@@ -1202,7 +1321,25 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
           </div>
         </div>
 
-        <div class="band-card">
+        <div class="band-card" data-group="eq">
+          <div class="band-title"><span data-i18n="bandHiMid">Hi-Mid</span> <span class="freq-tag">2500 Hz</span></div>
+          <div class="band-desc" data-i18n="descHiMid">Vocal/lead presence and consonant clarity live here — separate from Presence (6kHz) so you can push clarity without also pushing sibilance.</div>
+          <div class="prow">
+            <div class="prow-head"><span class="lbl">Gain</span><span class="num-input-group"><input class="num-input" type="number" id="himidGainNum" step="0.1"><span class="unit-suffix">dB</span></span></div>
+            <input type="range" id="himidGainSlider" min="-9" max="9" step="0.1" value="0">
+          </div>
+        </div>
+
+        <div class="band-card" data-group="eq">
+          <div class="band-title"><span data-i18n="bandPresence">Presence</span> <span class="freq-tag">6000 Hz</span></div>
+          <div class="band-desc" data-i18n="descPresence">Cymbal shimmer, hi-hat edge, sibilance ("S" sounds). Separate from Air (High Shelf) so you can tame or lift this specific harshness zone without also touching the very top end.</div>
+          <div class="prow">
+            <div class="prow-head"><span class="lbl">Gain</span><span class="num-input-group"><input class="num-input" type="number" id="presenceGainNum" step="0.1"><span class="unit-suffix">dB</span></span></div>
+            <input type="range" id="presenceGainSlider" min="-9" max="9" step="0.1" value="0">
+          </div>
+        </div>
+
+        <div class="band-card" data-group="eq">
           <div class="band-title"><span data-i18n="bandHighShelf">High Shelf</span> <span class="freq-tag" id="highFreqTag">8000 Hz</span></div>
           <div class="band-desc" data-i18n="descHighShelf">Boosts or cuts everything above the frequency you set. Raising it adds air/brightness; cutting it softens harshness or sibilance.</div>
           <div class="comp-curve-wrap">
@@ -1220,7 +1357,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
           </div>
         </div>
 
-        <div class="band-card">
+        <div class="band-card" data-group="desk">
           <div class="band-title" data-i18n="bandSaturation">Saturation</div>
           <div class="band-desc" data-i18n="descSaturation">Adds harmonic warmth/density with a soft-clip curve — an alternative to the Compressor for "fullness" that doesn't touch dynamics. Drive sets how hard the signal is pushed into the curve; Mix blends it back with the untouched dry signal (parallel saturation).</div>
           <div class="comp-curve-wrap">
@@ -1243,7 +1380,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
           </div>
         </div>
 
-        <div class="band-card">
+        <div class="band-card" data-group="desk">
           <div class="band-title" data-i18n="bandCompressor">Compressor</div>
           <div class="band-desc" data-i18n="descCompressor">Turns down anything louder than Threshold, by the amount set in Ratio. Attack/Release control how fast it grabs and lets go — fast values feel punchier, slow values feel smoother.</div>
           <div class="gr-meter-row"><div class="gr-bar-wrap"><div class="gr-bar-fill" id="grCompFill"></div></div><span class="gr-val" id="grCompVal">GR 0.0dB</span></div>
@@ -1271,7 +1408,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
           </div>
         </div>
 
-        <div class="band-card">
+        <div class="band-card" data-group="desk">
           <div class="band-title"><span data-i18n="bandBassProtect">Bass Protect</span> <span class="freq-tag" id="bassFreqTag">150 Hz</span></div>
           <div class="band-desc" data-i18n="descBassProtect">Splits everything below the crossover off BEFORE the main Compressor, and compresses it separately with its own Threshold/Ratio/Attack/Release. Stops loud hits elsewhere (hats, chants, cymbals) from ducking or chopping up sustained bass/808s in the main Compressor's gain reduction — the two bands stop fighting over the same reduction.</div>
           <div class="gr-meter-row"><div class="gr-bar-wrap"><div class="gr-bar-fill" id="grBassFill"></div></div><span class="gr-val" id="grBassVal">GR 0.0dB</span></div>
@@ -1307,7 +1444,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
           </div>
         </div>
 
-        <div class="band-card">
+        <div class="band-card" data-group="desk">
           <div class="band-title" data-i18n="bandLoudness">Loudness / Limiter</div>
           <div class="band-desc" data-i18n="descLoudness">Makeup Gain restores volume lost to compression. Limiter Ceiling caps the loudest peaks so they never exceed that level. Intensity blends this whole processed chain with the untouched original.</div>
           <div class="gr-meter-row"><div class="gr-bar-wrap"><div class="gr-bar-fill" id="grLimFill"></div></div><span class="gr-val" id="grLimVal">GR 0.0dB</span></div>
@@ -1325,10 +1462,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
           </div>
         </div>
 
-        <div class="band-card">
+        <div class="band-card" data-group="desk">
           <div class="band-title" data-i18n="bandDeharsher">De-Harsher</div>
           <div class="band-desc" data-i18n="descDeharsher">Splits the signal at Detect Frequency and compresses only the band above it — pulls down harsh/splashy energy (cymbals, sibilance, synth noise) without touching everything else. Guided by the Spectral Harshness reading above.</div>
           <div class="gr-meter-row"><div class="gr-bar-wrap"><div class="gr-bar-fill" id="grDeFill"></div></div><span class="gr-val" id="grDeVal">GR 0.0dB</span></div>
+          <div class="prow">
+            <div class="prow-head"><span class="lbl" data-i18n="enableLabel">Enable</span></div>
+            <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim);"><input type="checkbox" id="deEnable" checked style="width:16px;height:16px;"> <span data-i18n="deEnableLabel">On — apply De-Harsher</span></label>
+          </div>
           <div class="prow">
             <div class="prow-head"><span class="lbl">Detect Frequency</span><span class="num-input-group"><input class="num-input" type="number" id="deFreqNum" step="100"><span class="unit-suffix">Hz</span></span></div>
             <input type="range" id="deFreqSlider" min="800" max="18000" step="100" value="3500">
@@ -1344,20 +1485,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
           <button class="dl-btn" id="deharshPreviewBtn" style="margin-top:4px; background:transparent; border:1px solid var(--line); color:var(--text-dim); font-size:11.5px; padding:9px;" data-i18n="previewRemoved">🎧 Preview removed content</button>
         </div>
 
-        <div class="band-card">
+        <div class="band-card" data-group="desk">
           <div class="band-title" data-i18n="bandWidth">Stereo Width</div>
           <div class="band-desc" data-i18n="descWidth">Splits the signal into mid (center) and side (stereo difference) and scales the side amount. Below 100% narrows toward mono; above 100% widens the stereo image. Mono sources are unaffected since they have no side signal to begin with.</div>
-          <div class="gonio-wrap">
-            <canvas id="gonioCanvas" class="gonio-canvas"></canvas>
-            <span class="gonio-label gonio-l">L</span>
-            <span class="gonio-label gonio-m">M</span>
-            <span class="gonio-label gonio-r">R</span>
-          </div>
           <div class="prow">
             <div class="prow-head"><span class="lbl">Width</span><span class="num-input-group"><input class="num-input" type="number" id="widthNum" step="5"><span class="unit-suffix">%</span></span></div>
             <input type="range" id="widthSlider" min="0" max="150" step="5" value="100">
           </div>
-          <div class="note" style="margin-top:6px;" data-i18n="gonioHint">Live goniometer — the more the shape leans toward horizontal, the wider the stereo image. A straight vertical line means mono.</div>
+          <div class="note" style="margin-top:6px;" data-i18n="gonioHintCard">The live goniometer for this is shown next to the waveforms above — it's fixed there so it keeps working even while this card is popped out.</div>
         </div>
 
       </div>
@@ -1393,15 +1528,6 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         <div class="wave-empty" id="envEmpty" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:12.5px; text-align:center; padding:16px;" data-i18n="envEmptyHint">Pick a band/window and click Render Envelope. Each curve is normalized to its own peak — you're comparing decay SHAPE, not loudness.</div>
       </div>
       <div id="envStats" style="margin-top:10px; font-family:var(--mono); font-size:12px; color:var(--text-dim);"></div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-title" data-i18n="panelEditHistory">Edit History</div>
-      <div class="history-controls">
-        <button class="dl-btn" id="undoBtn" style="width:auto; padding:9px 18px; background:var(--panel-2); color:var(--accent); border:1px solid var(--line);" disabled data-i18n="undoBtn">↩ Undo one step</button>
-        <button class="reset-btn" id="historyToggleBtn" style="display:none;">Show full history ▾</button>
-      </div>
-      <div class="history-log" id="historyLog"><div class="history-empty">No edits yet — upload a track and adjust the Mixing Desk to start a history.</div></div>
     </div>
 
     <div class="panel">
@@ -1468,6 +1594,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         <div class="history-empty" data-i18n="suggestionListEmpty">Run Mastering to get concrete suggestions for reaching a streaming-safe loudness, or pushing louder without breaking balance.</div>
       </div>
       <button class="dl-btn" id="dlBtn" disabled style="margin-top:14px;">Download WAV (24-bit)</button>
+      <button class="dl-btn" id="dlBundleBtn" disabled style="margin-top:8px; background:var(--panel-2); color:var(--accent); border:1px solid var(--accent);" data-i18n="btnDlBundle">📦 Download with Settings + Log (pick a folder)</button>
+      <div class="note" id="dlBundleNote" data-i18n="dlBundleNote">Type a name, then pick one folder — the audio file, Settings file, and Log file all save there together with that name. Needs Chrome or Edge.</div>
+      <div class="note" id="dlBundleFolderHint" style="color:var(--warn);" data-i18n="dlBundleFolderHint">⚠ Your browser won't let you pick "Downloads", "Documents", "Desktop", or a drive's top level directly (blocked for safety) — create or choose a subfolder inside one of those instead.</div>
       <div class="note" data-i18n-html="processingNoteHtml">All processing happens in your browser. Your file is never sent to a server. MP3 encoding is powered by the <a href="https://lame.sourceforge.net" target="_blank" rel="noopener" style="color:var(--accent);">LAME</a> encoder (lamejs port, LGPL-3.0), bundled directly in this file — no external requests needed.</div>
     </div>
 
@@ -1478,6 +1607,47 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     Web Audio API nodes, and the meters read real-time values. The signal analysis above is computed with actual
     DSP measurements (peak/RMS, band energy, stereo correlation) — not a trained ML model, so treat it as a rough
     guide rather than a professional loudness/mastering report.
+  </div>
+</div>
+
+<!-- ---- Bundle-save modal: folder picker AND filename together in one
+     screen, so the person sets both before ever hitting "Save" — no
+     sequence of separate popups. "Choose folder…" opens exactly one native
+     folder dialog and stores the handle; "Save" is disabled until a folder
+     has been picked, and then writes all three files directly with no
+     further dialogs.
+     EXCEPTION: when this page is opened directly as a local file
+     (file:// — no real origin), Chrome's folder picker refuses to grant
+     ANY folder at all ("can't open this folder, contains system files"),
+     not just Downloads/Documents/Desktop — it's an origin restriction, not
+     a specific-folder one. #bundleFolderSection is hidden in that case and
+     Save falls back to three native Save-As dialogs instead (one each for
+     audio/settings/log, sharing one `id` so they reopen in the same
+     folder) — the same mechanism Save Settings / Download Log already use
+     successfully under file://. See dlBundleBtn / bundleFolderBtn /
+     bundleModalSave / IS_FILE_PROTOCOL. ---- -->
+<div id="bundleNameOverlay" class="bundle-modal-overlay hidden">
+  <div class="bundle-modal">
+    <div class="bundle-modal-title" data-i18n="bundleModalTitle">Save with Settings + Log</div>
+    <div class="bundle-modal-sub" id="bundleModalSubText" data-i18n="bundleModalSub">Choose a folder and a name — the audio file, Settings file, and Log file will all be saved there together.</div>
+    <div id="bundleFolderSection">
+      <label class="bundle-modal-label" data-i18n="bundleModalFolderLabel">Folder</label>
+      <button type="button" class="dl-btn" id="bundleFolderBtn" style="width:100%; background:var(--panel-2); color:var(--accent); border:1px solid var(--accent); text-align:left;" data-i18n="bundleModalChooseFolder">📁 Choose folder…</button>
+      <div class="bundle-modal-folder-status" id="bundleFolderStatus" data-i18n="bundleModalNoFolder">No folder selected yet</div>
+    </div>
+    <label class="bundle-modal-label" data-i18n="bundleModalNameLabel">File name</label>
+    <input type="text" id="bundleNameInput" class="bundle-modal-input" spellcheck="false">
+    <div class="bundle-modal-preview" id="bundleNamePreview"></div>
+    <div class="bundle-modal-btns">
+      <button type="button" class="dl-btn" id="bundleModalCancel" style="background:var(--panel-2); color:var(--text-dim); border:1px solid var(--line);" data-i18n="bundleModalCancel">Cancel</button>
+      <button type="button" class="dl-btn" id="bundleModalSave" disabled data-i18n="bundleModalSave">💾 Save</button>
+    </div>
+    <div style="text-align:center; margin-top:16px;">
+      <a href="https://www.youtube.com/@dreamylovebreeze" target="_blank" rel="noopener" class="yt-subscribe" style="font-size:11.5px; padding:7px 14px;">
+        <svg viewBox="0 0 24 24" width="13" height="13"><polygon points="8,5 19,12 8,19" fill="#fff"/></svg>
+        <span data-i18n="subscribeBtn">Subscribe Dreamy Love Breeze</span>
+      </a>
+    </div>
   </div>
 </div>
 
@@ -1493,6 +1663,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
 
   // nodes (built once ctx exists)
   let lowShelf, midPeak, highShelf, deHp, deLp, deComp, deSum, bassLp, bassHp, bassComp, bassSum, comp, makeup, limiter, dryGain, wetGain, analyser;
+  let eqSub, eqBass, eqLowMid, eqHiMid, eqPresence;
   let satPreGain, satShaper, satPostGain, satDryGain, satWetGain, satSum;
   // mid-side stereo widener stage (between Makeup Gain and the Limiter)
   let widthSplitter, widthMidL, widthMidR, widthMid, widthSideL, widthSideR, widthSide, widthPos, widthNeg, widthMerger;
@@ -1517,7 +1688,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
 
   function initGraph(){
     lowShelf = audioCtx.createBiquadFilter(); lowShelf.type='lowshelf';
+    eqSub = audioCtx.createBiquadFilter(); eqSub.type='peaking'; eqSub.frequency.value=60; eqSub.Q.value=1.0;
+    eqBass = audioCtx.createBiquadFilter(); eqBass.type='peaking'; eqBass.frequency.value=150; eqBass.Q.value=1.0;
+    eqLowMid = audioCtx.createBiquadFilter(); eqLowMid.type='peaking'; eqLowMid.frequency.value=400; eqLowMid.Q.value=1.0;
     midPeak = audioCtx.createBiquadFilter(); midPeak.type='peaking';
+    eqHiMid = audioCtx.createBiquadFilter(); eqHiMid.type='peaking'; eqHiMid.frequency.value=2500; eqHiMid.Q.value=1.0;
+    eqPresence = audioCtx.createBiquadFilter(); eqPresence.type='peaking'; eqPresence.frequency.value=6000; eqPresence.Q.value=1.0;
     highShelf = audioCtx.createBiquadFilter(); highShelf.type='highshelf';
     satPreGain = audioCtx.createGain();
     satShaper = audioCtx.createWaveShaper();
@@ -1576,8 +1752,13 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   function connectChain(src){
     src.connect(dryGain);
     src.connect(lowShelf);
-    lowShelf.connect(midPeak);
-    midPeak.connect(highShelf);
+    lowShelf.connect(eqSub);
+    eqSub.connect(eqBass);
+    eqBass.connect(eqLowMid);
+    eqLowMid.connect(midPeak);
+    midPeak.connect(eqHiMid);
+    eqHiMid.connect(eqPresence);
+    eqPresence.connect(highShelf);
     // saturation: parallel soft-clip harmonic warmth, dry+wet blended by Mix
     highShelf.connect(satDryGain);
     highShelf.connect(satPreGain);
@@ -1652,9 +1833,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     if(!lowShelf) return;
     lowShelf.frequency.value = val('lowFreq');
     lowShelf.gain.value = val('lowGain');
+    eqSub.gain.value = val('subGain');
+    eqBass.gain.value = val('bassGain');
+    eqLowMid.gain.value = val('lowmidGain');
     midPeak.frequency.value = val('midFreq');
     midPeak.gain.value = val('midGain');
     midPeak.Q.value = val('midQ');
+    eqHiMid.gain.value = val('himidGain');
+    eqPresence.gain.value = val('presenceGain');
     highShelf.frequency.value = val('highFreq');
     highShelf.gain.value = val('highGain');
     const satAmount = val('satAmount')/100;
@@ -1667,8 +1853,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     satWetGain.gain.value = satMix;
     deHp.frequency.value = val('deFreq');
     deLp.frequency.value = val('deFreq');
-    deComp.threshold.value = val('deSens');
-    deComp.ratio.value = val('deAmount');
+    const deOn = document.getElementById('deEnable') ? document.getElementById('deEnable').checked : true;
+    deComp.threshold.value = deOn ? val('deSens') : 0;
+    deComp.ratio.value = deOn ? val('deAmount') : 1;
     comp.threshold.value = val('thresh');
     comp.ratio.value = val('ratio');
     comp.attack.value = val('attack')/1000;
@@ -1699,10 +1886,17 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   // writes straight into those sliders (same clamping, same history hooks) —
   // this is just an alternate control surface, not a separate source of truth. ----
   const EQ_BANDS = [
-    { key:'low',  freqSlider:'lowFreqSlider',  gainSlider:'lowGainSlider',  color:'#4fd6c4' },
-    { key:'mid',  freqSlider:'midFreqSlider',  gainSlider:'midGainSlider',  color:'#f2a541' },
-    { key:'high', freqSlider:'highFreqSlider', gainSlider:'highGainSlider', color:'#ef5350' },
+    { key:'low',      gainSlider:'lowGainSlider',      freqSlider:'lowFreqSlider',  fixedFreq:null, color:'#4fd6c4' },
+    { key:'sub',      gainSlider:'subGainSlider',      freqSlider:null, fixedFreq:60,   color:'#7c8cff' },
+    { key:'bass',     gainSlider:'bassGainSlider',     freqSlider:null, fixedFreq:150,  color:'#5aa9ff' },
+    { key:'lowmid',   gainSlider:'lowmidGainSlider',   freqSlider:null, fixedFreq:400,  color:'#4fd6c4' },
+    { key:'mid',      gainSlider:'midGainSlider',      freqSlider:'midFreqSlider',  fixedFreq:null, color:'#f2a541' },
+    { key:'himid',    gainSlider:'himidGainSlider',    freqSlider:null, fixedFreq:2500, color:'#ffb347' },
+    { key:'presence', gainSlider:'presenceGainSlider', freqSlider:null, fixedFreq:6000, color:'#ff8c5a' },
+    { key:'high',     gainSlider:'highGainSlider',     freqSlider:'highFreqSlider', fixedFreq:null, color:'#ef5350' },
   ];
+  function eqBandFreq(band){ return band.fixedFreq != null ? band.fixedFreq : (document.getElementById(band.freqSlider) ? parseFloat(document.getElementById(band.freqSlider).value) : 0); }
+  function eqBandGain(band){ const s = document.getElementById(band.gainSlider); return s ? parseFloat(s.value) : 0; }
   const EQ_MIN_F = 30, EQ_MAX_F = 20000, EQ_GAIN_RANGE = 9;
   let eqDragging = null;
 
@@ -1776,16 +1970,21 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       c.addEventListener('pointermove', e=>{
         if(eqDragging !== band) return;
         const rect = svg.getBoundingClientRect();
-        const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        const freq = eqXToFreq(x, rect.width);
-        const gain = eqYToGain(y, rect.height);
-        const freqSlider = document.getElementById(band.freqSlider);
         const gainSlider = document.getElementById(band.gainSlider);
-        freqSlider.value = freq;
-        freqSlider.dispatchEvent(new Event('input'));
+        const gain = eqYToGain(y, rect.height);
         gainSlider.value = gain;
         gainSlider.dispatchEvent(new Event('input'));
+        if(band.freqSlider){
+          // freq-adjustable bands (Low Shelf / Mid Peak / High Shelf) also move
+          // horizontally; fixed bands (Sub/Bass/Low-Mid/Hi-Mid/Presence) only
+          // ever move vertically since their frequency is locked.
+          const x = e.clientX - rect.left;
+          const freq = eqXToFreq(x, rect.width);
+          const freqSlider = document.getElementById(band.freqSlider);
+          freqSlider.value = freq;
+          freqSlider.dispatchEvent(new Event('input'));
+        }
       });
       const endDrag = ()=>{ if(eqDragging === band){ eqDragging = null; c.style.cursor = 'grab'; } };
       c.addEventListener('pointerup', endDrag);
@@ -1803,8 +2002,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const w = wrap.clientWidth, h = wrap.clientHeight;
     if(w === 0 || h === 0) return;
     const pts = EQ_BANDS.map(band=>({
-      x: eqFreqToX(val(band.key+'Freq'), w),
-      y: eqGainToY(val(band.key+'Gain'), h),
+      x: eqFreqToX(eqBandFreq(band), w),
+      y: eqGainToY(eqBandGain(band), h),
     }));
     const path = document.getElementById('eqCurvePath');
     if(path) path.setAttribute('points', pts.map(p=>`${p.x},${p.y}`).join(' '));
@@ -1813,7 +2012,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       if(c){ c.setAttribute('cx', pts[i].x); c.setAttribute('cy', pts[i].y); }
       const label = document.getElementById('eqLabel_'+band.key);
       if(label){
-        const freq = val(band.key+'Freq'), gain = val(band.key+'Gain');
+        const freq = eqBandFreq(band), gain = eqBandGain(band);
         const freqTxt = freq >= 1000 ? `${(freq/1000).toFixed(freq>=10000?0:1)}k` : `${Math.round(freq)}`;
         label.textContent = `${freqTxt}Hz  ${gain>=0?'+':''}${gain.toFixed(1)}dB`;
         // flip label above/below the point depending on where there's room, and
@@ -2163,9 +2362,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   }
   bindPair('lowFreq', 0, 'lowFreqTag', v=>`${Math.round(v)} Hz`);
   bindPair('lowGain', 1);
+  bindPair('subGain', 1);
+  bindPair('bassGain', 1);
+  bindPair('lowmidGain', 1);
   bindPair('midFreq', 0, 'midFreqTag', v=>`${Math.round(v)} Hz`);
   bindPair('midGain', 1);
   bindPair('midQ', 1);
+  bindPair('himidGain', 1);
+  bindPair('presenceGain', 1);
   bindPair('highFreq', 0, 'highFreqTag', v=>`${Math.round(v)} Hz`);
   bindPair('highGain', 1);
   bindPair('satAmount', 0);
@@ -2188,18 +2392,36 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   document.getElementById('satEnable').addEventListener('change', ()=>{
     applyAllParams(); invalidateMaster(); scheduleHistoryPush('Manual edit');
   });
+  document.getElementById('deEnable').addEventListener('change', ()=>{
+    applyAllParams(); invalidateMaster(); scheduleHistoryPush('Manual edit');
+  });
   bindPair('makeup', 1);
   bindPair('ceil', 1);
   bindPair('intensity', 0);
   bindPair('width', 0);
 
   // ---- edit history (undo + log) ----
-  const PARAM_KEYS = ['lowFreq','lowGain','midFreq','midGain','midQ','highFreq','highGain',
-    'deFreq','deSens','deAmount','thresh','ratio','attack','release','makeup','ceil','intensity','width'];
+  const PARAM_KEYS = ['lowFreq','lowGain','subGain','bassGain','lowmidGain','midFreq','midGain','midQ','himidGain','presenceGain','highFreq','highGain',
+    'satAmount','satMix',
+    'deFreq','deSens','deAmount','thresh','ratio','attack','release','makeup','ceil','intensity','width',
+    'bassFreq','bassThresh','bassRatio','bassAttack','bassRelease'];
   let history = [];
   let historyIndex = -1;
   let historyDebounceId = null;
   let restoringSnapshot = false;
+
+  // ---- append-only edit log: separate from the Undo history above, which
+  // intentionally overwrites "future" steps when you undo then make a new
+  // edit (standard undo/redo behavior). This log NEVER overwrites anything —
+  // every edit, preset pick, undo, and jump is recorded in the order it
+  // actually happened, so someone can later reconstruct exactly how much
+  // manual/human-directed work went into the final result (useful as it
+  // becomes more common to need to document AI-assisted work for copyright
+  // purposes). ----
+  let editLog = [];
+  function logEvent(action, label, snap){
+    editLog.push({ time: new Date(), action, label, snap: snap || null });
+  }
 
   function snapshotParams(){
     const snap = {};
@@ -2209,8 +2431,10 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   function pushHistory(label){
     if(restoringSnapshot || !audioBuffer) return;
     history = history.slice(0, historyIndex+1);
-    history.push({ label, time: new Date(), snap: snapshotParams() });
+    const snap = snapshotParams();
+    history.push({ label, time: new Date(), snap });
     historyIndex = history.length - 1;
+    logEvent('Edit', label, snap);
     renderHistoryLog();
   }
   function scheduleHistoryPush(label){
@@ -2231,6 +2455,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     if(historyIndex <= 0) return;
     historyIndex--;
     applySnapshot(history[historyIndex].snap);
+    logEvent('Undo', `Reverted to step ${historyIndex+1}: "${history[historyIndex].label}"`);
     renderHistoryLog();
   }
   let historyExpanded = false;
@@ -2263,6 +2488,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       btn.addEventListener('click', ()=>{
         historyIndex = idx;
         applySnapshot(h.snap);
+        logEvent('Jump', `Jumped to step ${idx+1}: "${h.label}"`);
         renderHistoryLog();
       });
       row.appendChild(label); row.appendChild(btn);
@@ -2281,55 +2507,55 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   // These only set tone/dynamics — loudness targeting is a separate step below
   // (Loudness Target + Final Mastering), so picking a preset never auto-renders.
   const PRESETS = {
-    naturalBalance: { lowFreq:100, lowGain:0.3, midFreq:1000, midGain:0, midQ:0.9, highFreq:8000, highGain:0.3,
+    naturalBalance: { lowFreq:100, lowGain:0.3, subGain:0, bassGain:0, lowmidGain:0, midFreq:1000, midGain:0, midQ:0.9, himidGain:0, presenceGain:0, highFreq:8000, highGain:0.3,
       satAmount:0, satMix:0,
       thresh:-26, ratio:1.8, attack:20, release:180,
       bassFreq:120, bassThresh:-24, bassRatio:1.4, bassAttack:25, bassRelease:200,
       makeup:0.5, ceil:-1, intensity:30, width:100,
       desc:'The safest default — built for old-school pop, acoustic, and singer-songwriter tracks. Keeps the original dynamics and tone, only lightly balancing what actually needs it.' },
-    vocalFocus: { lowFreq:100, lowGain:-1, midFreq:2500, midGain:2.5, midQ:1.2, highFreq:8000, highGain:1.5,
+    vocalFocus: { lowFreq:100, lowGain:-1, subGain:0, bassGain:0, lowmidGain:0, midFreq:2500, midGain:2.5, midQ:1.2, himidGain:0, presenceGain:0, highFreq:8000, highGain:1.5,
       satAmount:15, satMix:10,
       thresh:-20, ratio:2.5, attack:15, release:120,
       bassFreq:130, bassThresh:-22, bassRatio:1.8, bassAttack:20, bassRelease:180,
       makeup:1.5, ceil:-1, intensity:60, width:95,
       desc:'Clears space in the low-mids and lifts vocal presence/volume so lyrics sit forward — the go-to choice for vocal-driven tracks.' },
-    lowEndPower: { lowFreq:55, lowGain:3.8, midFreq:600, midGain:-1, midQ:1.0, highFreq:9000, highGain:0,
+    lowEndPower: { lowFreq:55, lowGain:3.8, subGain:0, bassGain:0, lowmidGain:0, midFreq:600, midGain:-1, midQ:1.0, himidGain:0, presenceGain:0, highFreq:9000, highGain:0,
       satAmount:25, satMix:15,
       thresh:-22, ratio:3.2, attack:8, release:100,
       bassFreq:140, bassThresh:-20, bassRatio:2.2, bassAttack:15, bassRelease:150,
       makeup:1, ceil:-1, intensity:55, width:90,
       desc:'Deep sub-bass boost (55Hz) and punchy compression built for Hip-Hop and EDM — keeps the low end tight and centered for mono-compatible club systems.' },
-    smoothHighs: { lowFreq:100, lowGain:0.5, midFreq:4000, midGain:-2.5, midQ:1.4, highFreq:9000, highGain:-3,
+    smoothHighs: { lowFreq:100, lowGain:0.5, subGain:0, bassGain:0, lowmidGain:0, midFreq:4000, midGain:-2.5, midQ:1.4, himidGain:0, presenceGain:0, highFreq:9000, highGain:-3,
       satAmount:10, satMix:10,
       thresh:-24, ratio:2, attack:20, release:200,
       bassFreq:120, bassThresh:-24, bassRatio:1.5, bassAttack:22, bassRelease:200,
       makeup:0.8, ceil:-1, intensity:45, width:105,
       desc:'Tames harsh 3–6kHz sibilance and rolls off the top end for a softer, easier listen — a good fit for R&B and any vocal-heavy track with harsh "S" sounds or a bright mix.' },
-    loudPunchy: { lowFreq:100, lowGain:1, midFreq:1200, midGain:0.5, midQ:1.0, highFreq:8500, highGain:1,
+    loudPunchy: { lowFreq:100, lowGain:1, subGain:0, bassGain:0, lowmidGain:0, midFreq:1200, midGain:0.5, midQ:1.0, himidGain:0, presenceGain:0, highFreq:8500, highGain:1,
       satAmount:35, satMix:25,
       thresh:-16, ratio:5, attack:5, release:80,
       bassFreq:150, bassThresh:-18, bassRatio:2.2, bassAttack:12, bassRelease:130,
       makeup:4, ceil:-0.6, intensity:90, width:100,
       desc:'Maximum-loudness setting — aggressive compression and makeup gain pushed toward competitive streaming/CD loudness (roughly -6 to -8 LUFS territory on its own). Follow up with Loudness Target + Final Mastering below to dial in an exact number.' },
-    rhythmicLive: { lowFreq:90, lowGain:2.0, midFreq:4000, midGain:0.8, midQ:1.3, highFreq:9500, highGain:1.5,
+    rhythmicLive: { lowFreq:90, lowGain:2.0, subGain:0, bassGain:0, lowmidGain:0, midFreq:4000, midGain:0.8, midQ:1.3, himidGain:0, presenceGain:0, highFreq:9500, highGain:1.5,
       satAmount:20, satMix:15,
       thresh:-24, ratio:2.0, attack:20, release:80,
       bassFreq:130, bassThresh:-22, bassRatio:2.0, bassAttack:18, bassRelease:150,
       makeup:1.0, ceil:-1, intensity:50, width:115,
       desc:'Boosts low-end punch (kick/bass) and adds a touch of upper-mid click for drums, with a slower attack that lets transients through — built for live band recordings and energetic performances.' },
-    classical: { lowFreq:80, lowGain:0.5, midFreq:1000, midGain:0, midQ:0.8, highFreq:10000, highGain:1.0,
+    classical: { lowFreq:80, lowGain:0.5, subGain:0, bassGain:0, lowmidGain:0, midFreq:1000, midGain:0, midQ:0.8, himidGain:0, presenceGain:0, highFreq:10000, highGain:1.0,
       satAmount:0, satMix:0,
       thresh:-28, ratio:1.5, attack:25, release:220,
       bassFreq:100, bassThresh:-26, bassRatio:1.3, bassAttack:25, bassRelease:220,
       makeup:0.5, ceil:-1.2, intensity:20, width:130,
       desc:'Wide, airy space for instrumental tracks — beats, MR, piano covers, and orchestral pieces alike. Very light compression preserves dynamics, with extra stereo width for an open, spacious feel.' },
-    lofi: { lowFreq:150, lowGain:2.0, midFreq:600, midGain:1.0, midQ:1.0, highFreq:6000, highGain:-4.0,
+    lofi: { lowFreq:150, lowGain:2.0, subGain:0, bassGain:0, lowmidGain:0, midFreq:600, midGain:1.0, midQ:1.0, himidGain:0, presenceGain:0, highFreq:6000, highGain:-4.0,
       satAmount:40, satMix:35,
       thresh:-26, ratio:2.5, attack:25, release:200,
       bassFreq:150, bassThresh:-22, bassRatio:1.8, bassAttack:20, bassRelease:180,
       makeup:1.0, ceil:-1.5, intensity:60, width:85,
       desc:'Dulled highs, warm low-mid boost, and a narrower stereo image for that dusty tape/vinyl character — built for lo-fi hip-hop, chillhop, and vintage-styled tracks.' },
-    streamingSafe: { lowFreq:100, lowGain:0.3, midFreq:1200, midGain:0.3, midQ:0.9, highFreq:8500, highGain:0.5,
+    streamingSafe: { lowFreq:100, lowGain:0.3, subGain:0, bassGain:0, lowmidGain:0, midFreq:1200, midGain:0.3, midQ:0.9, himidGain:0, presenceGain:0, highFreq:8500, highGain:0.5,
       satAmount:10, satMix:5,
       thresh:-24, ratio:2.0, attack:15, release:150,
       bassFreq:120, bassThresh:-22, bassRatio:1.6, bassAttack:20, bassRelease:180,
@@ -2457,6 +2683,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     clearTimeout(historyDebounceId);
     pushHistory('Preset: ' + e.target.selectedOptions[0].textContent);
     descEl.textContent = currentPresetDescText();
+
+    // a new preset overwrites the sliders, so any active Vibe tags need a
+    // fresh baseline to blend into — force a recapture, then reapply the
+    // still-active tags on top of this preset's values.
+    vibeBaseSnapshot = null;
+    if(collectLayerValues(VIBE_LAYER_IDS).length) applyVibeOffsets();
   });
 
   // ---- My Presets: save/load the full Mixing Desk state to this browser
@@ -2464,7 +2696,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   // song without retyping every slider by hand. Local only — nothing leaves
   // the browser. ----
   const SETTINGS_SLIDER_KEYS = [
-    'lowFreq','lowGain','midFreq','midGain','midQ','highFreq','highGain',
+    'lowFreq','lowGain','subGain','bassGain','lowmidGain','midFreq','midGain','midQ','himidGain','presenceGain','highFreq','highGain',
     'satAmount','satMix',
     'thresh','ratio','attack','release',
     'bassFreq','bassThresh','bassRatio','bassAttack','bassRelease',
@@ -2473,7 +2705,10 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     'width'
   ];
   const SETTINGS_LABELS = {
-    lowFreq:'Low Shelf Freq', lowGain:'Low Shelf Gain', midFreq:'Mid Peak Freq', midGain:'Mid Peak Gain', midQ:'Mid Peak Q',
+    lowFreq:'Low Shelf Freq', lowGain:'Low Shelf Gain',
+    subGain:'Sub Gain (60Hz)', bassGain:'Bass Gain (150Hz)', lowmidGain:'Low-Mid Gain (400Hz)',
+    midFreq:'Mid Peak Freq', midGain:'Mid Peak Gain', midQ:'Mid Peak Q',
+    himidGain:'Hi-Mid Gain (2.5kHz)', presenceGain:'Presence Gain (6kHz)',
     highFreq:'High Shelf Freq', highGain:'High Shelf Gain',
     satAmount:'Saturation Drive', satMix:'Saturation Mix',
     thresh:'Compressor Threshold', ratio:'Compressor Ratio', attack:'Compressor Attack', release:'Compressor Release',
@@ -2483,7 +2718,6 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     deFreq:'De-Harsher Detect Freq', deSens:'De-Harsher Sensitivity', deAmount:'De-Harsher Reduction',
     width:'Stereo Width'
   };
-  const MY_PRESETS_LS_KEY = 'aiMasteringToolUserPresets_v1';
 
   function getSettingsSnapshot(){
     const snap = {};
@@ -2512,91 +2746,41 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     pushHistory('Loaded preset');
   }
 
-  let memoryPresetsFallback = {};
-  let presetsStorageBroken = false;
-
-  function loadMyPresets(){
-    try{
-      const raw = localStorage.getItem(MY_PRESETS_LS_KEY);
-      return raw ? JSON.parse(raw) : {};
-    }catch(e){
-      presetsStorageBroken = true;
-      console.log('localStorage read failed, using in-memory fallback (won\'t survive a page reload):', e);
-      return memoryPresetsFallback;
-    }
-  }
-  function saveMyPresets(obj){
-    try{
-      localStorage.setItem(MY_PRESETS_LS_KEY, JSON.stringify(obj));
-      memoryPresetsFallback = obj; // keep both in sync in case localStorage recovers later
-    }catch(e){
-      presetsStorageBroken = true;
-      memoryPresetsFallback = obj;
-      console.log('localStorage write failed, saved in-memory only (won\'t survive a page reload):', e);
-    }
-  }
-  function refreshMyPresetSelect(){
-    const sel = document.getElementById('myPresetSelect');
-    const presets = loadMyPresets();
-    const names = Object.keys(presets).sort();
-    sel.innerHTML = '<option value="">— Saved presets —</option>' +
-      names.map(n => `<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join('');
-  }
-  refreshMyPresetSelect();
-
-  document.getElementById('myPresetSaveBtn').addEventListener('click', ()=>{
-    const nameInput = document.getElementById('myPresetName');
-    const statusEl = document.getElementById('myPresetStatus');
-    const name = nameInput.value.trim();
-    if(!name){ nameInput.focus(); statusEl.textContent = 'Type a name first, then Save Current.'; setTimeout(()=>statusEl.textContent='',2500); return; }
-    const presets = loadMyPresets();
-    presets[name] = getSettingsSnapshot();
-    saveMyPresets(presets);
-    refreshMyPresetSelect();
-    document.getElementById('myPresetSelect').value = name;
-    nameInput.value = '';
-    statusEl.textContent = presetsStorageBroken
-      ? `Saved "${name}" for this session only — this browser is blocking persistent storage on local files (file://), so it won't survive a page reload. Use "Save Settings to File" instead for something permanent.`
-      : `Saved "${name}" — select it above and click Load anytime, even after reloading this page.`;
-    setTimeout(()=>{ statusEl.textContent=''; }, presetsStorageBroken ? 8000 : 3500);
-  });
-  document.getElementById('myPresetLoadBtn').addEventListener('click', ()=>{
-    const statusEl = document.getElementById('myPresetStatus');
-    const name = document.getElementById('myPresetSelect').value;
-    if(!name){ statusEl.textContent = 'Nothing selected — pick a saved preset from the dropdown first (or Save Current to create one).'; setTimeout(()=>statusEl.textContent='',3500); return; }
-    const presets = loadMyPresets();
-    if(!audioBuffer){ statusEl.textContent = 'Upload a track first — the Mixing Desk sliders only apply once a track is loaded.'; setTimeout(()=>statusEl.textContent='',3500); return; }
-    if(presets[name]){
-      applySettingsSnapshot(presets[name]);
-      statusEl.textContent = `Loaded "${name}".`;
-      setTimeout(()=>{ statusEl.textContent=''; }, 2500);
-    } else {
-      statusEl.textContent = 'Could not find that preset — try refreshing the page.';
-      setTimeout(()=>statusEl.textContent='',3500);
-    }
-  });
-  document.getElementById('myPresetDeleteBtn').addEventListener('click', ()=>{
-    const statusEl = document.getElementById('myPresetStatus');
-    const sel = document.getElementById('myPresetSelect');
-    const name = sel.value;
-    if(!name){ statusEl.textContent = 'Nothing selected to delete.'; setTimeout(()=>statusEl.textContent='',2500); return; }
-    const presets = loadMyPresets();
-    delete presets[name];
-    saveMyPresets(presets);
-    refreshMyPresetSelect();
-    statusEl.textContent = `Deleted "${name}".`;
-    setTimeout(()=>{ statusEl.textContent=''; }, 2500);
-  });
-
   // ---- Copy all current Mixing Desk settings as plain text — handy for
   // pasting into a chat/notes instead of screenshotting every slider. ----
   function getSettingsText(){
     const snap = getSettingsSnapshot();
     const lines = SETTINGS_SLIDER_KEYS.map(k => `${SETTINGS_LABELS[k]}: ${snap[k]}`);
-    lines.splice(13, 0, `Bass Protect Enable: ${snap.bassEnable ? 'On' : 'Off'}`);
-    lines.splice(9, 0, `Saturation Enable: ${snap.satEnable ? 'On' : 'Off'}`);
+    lines.splice(18, 0, `Bass Protect Enable: ${snap.bassEnable ? 'On' : 'Off'}`);
+    lines.splice(12, 0, `Saturation Enable: ${snap.satEnable ? 'On' : 'Off'}`);
     return 'AI Mastering Tool — Mixing Desk settings\n' + lines.join('\n');
   }
+
+  // ---- Edit Log export: the append-only record built up in editLog[] above,
+  // formatted as a readable .txt — a provenance trail of every edit, preset
+  // pick, undo, and jump, in the order it actually happened. ----
+  function formatSnapForLog(snap){
+    if(!snap) return '';
+    return Object.entries(snap).map(([k,v])=>`    ${SETTINGS_LABELS[k] || k}: ${v}`).join('\n');
+  }
+  function getLogText(){
+    const lines = [];
+    lines.push('AI Mastering Tool — Edit Log');
+    lines.push(`Generated: ${new Date().toLocaleString()}`);
+    lines.push(`Total events: ${editLog.length}`);
+    lines.push('');
+    lines.push('This log is append-only and is never overwritten by Undo — every edit,');
+    lines.push('preset choice, undo, and jump is recorded here in the order it happened,');
+    lines.push('including steps that were later undone.');
+    lines.push('');
+    editLog.forEach((entry, i)=>{
+      lines.push(`[${i+1}] ${entry.time.toLocaleString()} — ${entry.action}: ${entry.label}`);
+      if(entry.snap) lines.push(formatSnapForLog(entry.snap));
+      lines.push('');
+    });
+    return lines.join('\n');
+  }
+
   document.getElementById('copySettingsBtn').addEventListener('click', async ()=>{
     const statusEl = document.getElementById('copySettingsStatus');
     const text = getSettingsText();
@@ -2644,6 +2828,37 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
     statusEl.textContent = 'Downloaded to your browser\'s default Downloads folder.';
+    setTimeout(()=>{ statusEl.textContent = ''; }, 4000);
+  });
+
+  document.getElementById('logDownloadBtn').addEventListener('click', async ()=>{
+    const statusEl = document.getElementById('copySettingsStatus');
+    const text = getLogText();
+    const suggestedName = 'mastering-log.txt';
+    if(window.showSaveFilePicker){
+      try{
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{ description: 'Text file', accept: {'text/plain': ['.txt']} }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(text);
+        await writable.close();
+        statusEl.textContent = `Log saved to ${handle.name}.`;
+        setTimeout(()=>{ statusEl.textContent = ''; }, 4000);
+        return;
+      }catch(e){
+        if(e && e.name === 'AbortError') return;
+        console.log('showSaveFilePicker failed, falling back to download:', e);
+      }
+    }
+    const blob = new Blob([text], {type:'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = suggestedName;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    statusEl.textContent = 'Log downloaded to your browser\'s default Downloads folder.';
     setTimeout(()=>{ statusEl.textContent = ''; }, 4000);
   });
 
@@ -2717,17 +2932,6 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     applySettingsSnapshot(snap);
     statusEl.textContent = 'Settings loaded from file.';
     setTimeout(()=>{ statusEl.textContent = ''; }, 3000);
-  });
-
-  // ---- when a built-in Mastering Direction preset is picked, suggest its
-  // name as the default My Presets name too — saves retyping "Loud & Punchy"
-  // etc. by hand if you just want to bookmark it as-is or as a starting point
-  // for your own tweaked version. ----
-  document.getElementById('presetSelect').addEventListener('change', e=>{
-    const nameInput = document.getElementById('myPresetName');
-    if(e.target.value && !nameInput.value.trim()){
-      nameInput.value = e.target.selectedOptions[0].textContent.trim();
-    }
   });
 
   // ---- genre (4 layers: Core/Era/Groove/Twist) + vibe (4 layers: Texture/
@@ -2829,6 +3033,113 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
 
   const GENRE_LAYER_IDS = ['genreCore', 'genreEra', 'genreGroove', 'genreTwist'];
   const VIBE_LAYER_IDS = ['vibeTexture', 'vibeRhythm', 'vibeSource', 'vibeEmotion'];
+
+  // ---- Preset × Vibe blending: fixed offsets, added on top of whatever
+  // preset (or manual baseline) is currently loaded. Each tag nudges a
+  // handful of Mixing Desk sliders by a small fixed amount derived from its
+  // VIBE_NOTES description above (e.g. Airy -> a bit more air up top).
+  // Multiple tags (up to 2 per row × 4 rows) simply sum their offsets.
+  // Applied live the moment a Vibe chip is clicked/unclicked — see
+  // applyVibeOffsets() and its hook in setupLayerChipRow(). Deliberately
+  // scoped to Vibe only (not Genre): Genre stays a reference/analysis label,
+  // Vibe is the "mood" layer this blends into the sound. ----
+  const VIBE_OFFSETS = {
+    // Texture
+    'Airy':        { presenceGain:1, highGain:1.5, width:8, satAmount:-5 },
+    'Cinematic':   { width:15, subGain:1, satAmount:-5 },
+    'Crystal':     { highGain:1.5, presenceGain:1, width:5, satAmount:-8 },
+    'Dusty':       { highGain:-2, lowmidGain:1, satAmount:8, satMix:5 },
+    'Glossy':      { highGain:2, bassGain:0.5, width:5 },
+    'Gritty':      { himidGain:1.5, satAmount:12, satMix:8 },
+    'Lo-fi':       { highGain:-3, lowmidGain:1, satAmount:15, satMix:10, width:-10 },
+    'Minimal':     { ratio:-0.5, satAmount:-8, width:-5 },
+    'Saturated':   { satAmount:15, satMix:12, bassGain:0.5 },
+    'Warm':        { lowmidGain:1.5, highGain:-1, satAmount:5 },
+    // Rhythm
+    'Bouncy':            { bassGain:1, attack:-3 },
+    'Breakbeat':         { himidGain:1, satAmount:8, lowmidGain:0.5 },
+    'Four-on-the-Floor': { subGain:1.5, bassGain:1 },
+    'Free/No Beat':      { width:10, ratio:-0.5 },
+    'Groovy':            { bassGain:0.5, attack:-2 },
+    'Laid-back':         { attack:5, release:20, satAmount:3 },
+    'Military':          { bassGain:1, attack:-5, ratio:0.5 },
+    'Rage':              { bassGain:1.5, ratio:1, satAmount:10 },
+    'Shuffle':           { lowmidGain:0.5, satAmount:5 },
+    'Slow March':        { subGain:1, attack:8, release:30 },
+    // Source
+    '808 Driven':        { subGain:2, highGain:0.5 },
+    'Acapella':          { bassGain:-1.5, subGain:-1.5, width:-10 },
+    'Choir':             { width:10, midGain:0.5 },
+    'Guitar Driven':     { himidGain:1, lowmidGain:0.5 },
+    'Instrumental Only': { width:5 },
+    'Orchestral':        { width:15, ratio:-1, attack:10, release:30 },
+    'Piano Driven':      { midGain:0.5, highGain:0.5 },
+    'Sampled':           { highGain:-2, satAmount:8 },
+    'Synth Lead':        { highGain:1.5, width:5 },
+    'Whispered Vocal':   { presenceGain:1, bassGain:-1, attack:5 },
+    // Emotion
+    'Anthemic':          { width:10, ratio:0.5 },
+    'Bittersweet':       { lowmidGain:1, highGain:-0.5 },
+    'Dark':              { lowmidGain:1.5, highGain:-2 },
+    'Euphoric':          { highGain:1.5, satAmount:8, width:8 },
+    'Hopeful':           { lowmidGain:0.5, highGain:0.5 },
+    'Melancholic':       { lowmidGain:1, highGain:-1, release:15 },
+    'Nostalgic':         { highGain:-2, satAmount:8, lowmidGain:0.5 },
+    'Playful':           { highGain:1, bassGain:0.5, attack:-3 },
+    'Sexy/Late Night':   { lowmidGain:1.5, highGain:-1, release:15 },
+    'Spiritual':         { width:12, highGain:0.5 },
+  };
+  // every slider key touched by any tag above — this is the snapshot taken
+  // as the "pre-vibe" baseline, and the set of sliders re-applied each time
+  // the active vibe selection changes.
+  const VIBE_RELEVANT_KEYS = Array.from(new Set(
+    Object.values(VIBE_OFFSETS).flatMap(o => Object.keys(o))
+  ));
+
+  // The Mixing Desk state as it was *before* any Vibe offsets — captured
+  // fresh whenever no Vibe tags are active, so a manual slider tweak or a
+  // newly-selected preset always becomes the new starting point next time a
+  // Vibe tag is clicked. null means "not captured yet, capture on next use".
+  let vibeBaseSnapshot = null;
+
+  function captureVibeBase(){
+    vibeBaseSnapshot = {};
+    VIBE_RELEVANT_KEYS.forEach(k=>{ vibeBaseSnapshot[k] = val(k); });
+  }
+
+  function applyVibeOffsets(){
+    const activeTags = collectLayerValues(VIBE_LAYER_IDS);
+    if(vibeBaseSnapshot === null) captureVibeBase();
+
+    const totals = {};
+    activeTags.forEach(tag=>{
+      const off = VIBE_OFFSETS[tag];
+      if(!off) return;
+      for(const k in off){ totals[k] = (totals[k] || 0) + off[k]; }
+    });
+
+    restoringSnapshot = true; // batch-apply without spamming per-slider history entries
+    VIBE_RELEVANT_KEYS.forEach(k=>{
+      const slider = document.getElementById(k+'Slider');
+      if(!slider) return;
+      const base = vibeBaseSnapshot[k];
+      const delta = totals[k] || 0;
+      const min = parseFloat(slider.min), max = parseFloat(slider.max);
+      const next = Math.min(max, Math.max(min, base + delta));
+      slider.value = next;
+      slider.dispatchEvent(new Event('input'));
+    });
+    restoringSnapshot = false;
+
+    invalidateMaster();
+    clearTimeout(historyDebounceId);
+    pushHistory(activeTags.length ? 'Vibe: ' + activeTags.join(' + ') : 'Vibe cleared');
+
+    // once every tag is deselected, drop the snapshot so the very next
+    // Vibe click captures a fresh baseline (picks up any manual edits or
+    // preset changes made in the meantime) instead of an old, stale one.
+    if(activeTags.length === 0) vibeBaseSnapshot = null;
+  }
   const LAYER_MAX = 2; // per layer — lets you combine e.g. Pop + Rock/Indie within Core
 
   function collectLayerValues(ids){
@@ -2843,6 +3154,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
 
   function setupLayerChipRow(id){
     const row = document.getElementById(id);
+    const isVibeRow = VIBE_LAYER_IDS.includes(id);
     row.querySelectorAll('.layer-chip').forEach(chip=>{
       chip.addEventListener('click', ()=>{
         if(chip.classList.contains('active')){
@@ -2856,6 +3168,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
           c.disabled = atMax && !c.classList.contains('active');
         });
         updateGenreCard();
+        if(isVibeRow) applyVibeOffsets();
       });
     });
   }
@@ -2903,6 +3216,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     document.getElementById('balVal').textContent = '—';
     document.getElementById('corrFill').style.width = '0%';
     clearGoniometer();
+    resetSpectrumPeaks();
+    vibeBaseSnapshot = null;
     document.getElementById('calibrateWarning').classList.add('hidden');
     document.getElementById('balFill').style.width = '0%';
     [...GENRE_LAYER_IDS, ...VIBE_LAYER_IDS].forEach(id=>{
@@ -2920,6 +3235,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     waveEmptyB.style.display = 'flex';
     waveEmptyB.textContent = 'Click Run Mastering to see the result waveform here';
     document.getElementById('dlBtn').disabled = true;
+    document.getElementById('dlBundleBtn').disabled = true;
     historyExpanded = false;
     document.getElementById('historyToggleBtn').style.display = 'none';
     document.getElementById('historyLog').innerHTML = '<div class="history-empty">No edits yet — upload a track and adjust the Mixing Desk to start a history.</div>';
@@ -2946,6 +3262,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     document.getElementById('heroSection').style.display = 'none';
     initGraph();
     document.getElementById('dlBtn').disabled = false;
+    document.getElementById('dlBundleBtn').disabled = !(window.showDirectoryPicker || window.showSaveFilePicker);
     document.getElementById('timeLabel').textContent = `00:00 / ${fmtTime(audioBuffer.duration)}`;
     masteredBuffer = null;
     waveEmptyB.style.display = 'flex';
@@ -3168,6 +3485,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     }
     updateGrMeters();
     updateLiveMonitor();
+    updateSpectrumPeaks();
     drawLiveSpectrum();
     mirrorToPopup();
   }
@@ -3176,6 +3494,53 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   let monitorBlocks = [];
   let lastMonitorPush = 0;
   let peakHoldL = -100, peakHoldR = -100;
+  // ---- Live Spectrum peak afterglow: same goniometer-style idea as
+  // drawGoniometer's fading trail, applied per frequency bar. Each bar
+  // remembers its own recent peak; the peak holds briefly as a bright line,
+  // then decays back down, fading out as it falls — instead of just
+  // snapping to whatever the current level is. Computed once per animation
+  // frame (updateSpectrumPeaks, called from drawMeterLoop) and shared by
+  // both the main canvas and the popped-out Live Monitor's mirrored canvas,
+  // so opening the popup doesn't double the decay speed. ----
+  const SPECTRUM_BAR_COUNT = 56;
+  let spectrumBarLevels = new Array(SPECTRUM_BAR_COUNT).fill(0); // current bar height, 0..1
+  let spectrumPeakLevel = new Array(SPECTRUM_BAR_COUNT).fill(0); // held/decaying peak, 0..1
+  let spectrumPeakHold = new Array(SPECTRUM_BAR_COUNT).fill(0);  // frames left before this bar's peak starts decaying
+  const SPECTRUM_PEAK_HOLD_FRAMES = 20; // ~0.33s at 60fps before a peak starts fading
+  const SPECTRUM_PEAK_DECAY = 0.018;    // per-frame falloff once the hold expires
+
+  function updateSpectrumPeaks(){
+    if(!isPlaying || !analyserL){
+      spectrumBarLevels.fill(0);
+      return;
+    }
+    const n = analyserL.frequencyBinCount;
+    const data = new Uint8Array(n);
+    analyserL.getByteFrequencyData(data);
+    const minBin = 1, maxBin = n-1;
+    for(let i=0;i<SPECTRUM_BAR_COUNT;i++){
+      const binLo = Math.floor(minBin * Math.pow(maxBin/minBin, i/SPECTRUM_BAR_COUNT));
+      const binHi = Math.max(binLo+1, Math.floor(minBin * Math.pow(maxBin/minBin, (i+1)/SPECTRUM_BAR_COUNT)));
+      let sum=0, cnt=0;
+      for(let b=binLo; b<binHi && b<n; b++){ sum+=data[b]; cnt++; }
+      const normV = (cnt ? sum/cnt : 0) / 255;
+      spectrumBarLevels[i] = normV;
+      if(normV >= spectrumPeakLevel[i]){
+        spectrumPeakLevel[i] = normV;
+        spectrumPeakHold[i] = SPECTRUM_PEAK_HOLD_FRAMES;
+      }else if(spectrumPeakHold[i] > 0){
+        spectrumPeakHold[i]--;
+      }else{
+        spectrumPeakLevel[i] = Math.max(normV, spectrumPeakLevel[i] - SPECTRUM_PEAK_DECAY);
+      }
+    }
+  }
+
+  function resetSpectrumPeaks(){
+    spectrumBarLevels.fill(0);
+    spectrumPeakLevel.fill(0);
+    spectrumPeakHold.fill(0);
+  }
   const vbarL = document.getElementById('vbarL');
   const vbarR = document.getElementById('vbarR');
   const vbarLVal = document.getElementById('vbarLVal');
@@ -3225,38 +3590,65 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   // (L=R, side=0) draws as a straight vertical line, and wider stereo material
   // spreads the shape out toward horizontal. Reuses the same L/R buffers the
   // true-peak meter already reads each frame — no extra analysis cost.
+  // Repaints a fully OPAQUE background every frame (not a translucent fade)
+  // so the widget can never end up looking blank — a translucent fade only
+  // reads as solid dark after several frames have composited on top of each
+  // other, and if the canvas is freshly attached (e.g. this card just got
+  // moved into a popped-out Dynamics window) there's nothing underneath yet
+  // to composite onto, which is what made it look like an empty white
+  // circle. bufL/bufR are optional — pass null/undefined to draw just the
+  // idle crosshair (used when playback is stopped), so there's always
+  // *something* visible instead of a cleared/blank canvas.
   function drawGoniometer(bufL, bufR){
     const canvas = document.getElementById('gonioCanvas');
     if(!canvas) return;
     const dpr = window.devicePixelRatio || 1;
-    const cssW = canvas.clientWidth, cssH = canvas.clientHeight;
+    const cssW = canvas.clientWidth || 104, cssH = canvas.clientHeight || 104;
     if(cssW === 0 || cssH === 0) return;
-    if(canvas.width !== Math.round(cssW*dpr) || canvas.height !== Math.round(cssH*dpr)){
-      canvas.width = Math.round(cssW*dpr); canvas.height = Math.round(cssH*dpr);
-    }
+    // Reset the backing store EVERY frame rather than only when the size
+    // changes. A <canvas> that gets moved to a popped-out window's document
+    // and then moved back (Dynamics popup close) can end up with a stale
+    // 2D context in some browsers — its getContext('2d') keeps returning an
+    // object, but nothing paints. Re-assigning .width unconditionally forces
+    // a full context reset every frame, which is cheap at this size (104px)
+    // and makes the widget self-heal after any number of pop-out/close
+    // cycles instead of only working once.
+    canvas.width = Math.round(cssW*dpr); canvas.height = Math.round(cssH*dpr);
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr,0,0,dpr,0,0);
-    ctx.fillStyle = 'rgba(10,12,16,0.35)'; // fade previous frame instead of hard-clearing, for a trail effect
+    ctx.fillStyle = '#0a0c10';
     ctx.fillRect(0,0,cssW,cssH);
 
     const cx = cssW/2, cy = cssH/2;
     const scale = Math.min(cssW,cssH)/2 - 4;
-    ctx.fillStyle = 'rgba(79,214,196,0.6)';
-    const step = Math.max(1, Math.floor(bufL.length/400)); // cap points per frame for perf
+
+    // static reference crosshair (M vertical / S horizontal) + outer ring,
+    // so the meter reads clearly even between hits.
+    ctx.strokeStyle = 'rgba(139,143,154,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy-scale); ctx.lineTo(cx, cy+scale);
+    ctx.moveTo(cx-scale, cy); ctx.lineTo(cx+scale, cy);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, scale, 0, Math.PI*2);
+    ctx.stroke();
+
+    if(!bufL || !bufR) return; // idle state — crosshair alone is the "alive but silent" reading
+
+    ctx.fillStyle = 'rgba(107,231,214,0.95)';
+    const step = Math.max(1, Math.floor(bufL.length/500)); // cap points per frame for perf
     for(let i=0; i<bufL.length; i+=step){
       const s = (bufL[i]-bufR[i]) / Math.SQRT2;
       const m = (bufL[i]+bufR[i]) / Math.SQRT2;
       const x = cx + s*scale;
       const y = cy - m*scale;
-      ctx.fillRect(x, y, 1.3, 1.3);
+      ctx.fillRect(x-1, y-1, 2.6, 2.6);
     }
   }
 
   function clearGoniometer(){
-    const canvas = document.getElementById('gonioCanvas');
-    if(!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawGoniometer(null, null);
   }
 
   // ---- colorful real-time frequency spectrum visualizer (Live Monitor) —
@@ -3277,18 +3669,10 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.clearRect(0,0,w,h);
     if(!isPlaying || !analyserL) return;
-    const n = analyserL.frequencyBinCount;
-    const data = new Uint8Array(n);
-    analyserL.getByteFrequencyData(data);
-    const barCount = 56;
-    const minBin = 1, maxBin = n-1;
+    const barCount = SPECTRUM_BAR_COUNT;
     for(let i=0;i<barCount;i++){
-      const binLo = Math.floor(minBin * Math.pow(maxBin/minBin, i/barCount));
-      const binHi = Math.max(binLo+1, Math.floor(minBin * Math.pow(maxBin/minBin, (i+1)/barCount)));
-      let sum=0, cnt=0;
-      for(let b=binLo; b<binHi && b<n; b++){ sum+=data[b]; cnt++; }
-      const v = cnt ? sum/cnt : 0;
-      const barH = Math.max(2, (v/255) * h);
+      const v = spectrumBarLevels[i];
+      const barH = Math.max(2, v * h);
       const hue = 265 - (i/barCount)*265; // violet (low freq) -> red (high freq)
       const x = (i/barCount)*w;
       const barW = Math.max(1, w/barCount - 1);
@@ -3297,6 +3681,21 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       grad.addColorStop(1, `hsla(${hue},85%,45%,0.5)`);
       ctx.fillStyle = grad;
       ctx.fillRect(x, h-barH, barW, barH);
+
+      // goniometer-style peak afterglow: a thin bright line at the held
+      // peak, fading out as it decays back down toward the live bar level.
+      const peak = spectrumPeakLevel[i];
+      if(peak > 0.01 && peak > v + 0.005){
+        const peakY = h - peak*h;
+        const holding = spectrumPeakHold[i] > 0;
+        // once decaying, alpha ramps down with how close the peak has
+        // fallen back to the live level, so the line visibly dissolves
+        // rather than just sliding down at full brightness.
+        const fadeProgress = holding ? 1 : Math.max(0, Math.min(1, (peak - v) / 0.35));
+        const alpha = holding ? 0.9 : 0.15 + fadeProgress*0.55;
+        ctx.fillStyle = `hsla(${hue},90%,80%,${alpha})`;
+        ctx.fillRect(x, peakY, barW, 1.6);
+      }
     }
   }
 
@@ -3321,6 +3720,172 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   // meters, so it can be dragged to a second monitor or a convenient spot
   // while working the Mixing Desk sliders. No cross-origin issues since it's
   // opened from — and only ever written to by — this same document. ----
+  // ---- Pop-out Mixing Desk groups (EQ / rest-of-desk): unlike the Live
+  // Monitor popup (which mirrors values into a copy), these REALLY move the
+  // live DOM elements into the popup window — same-origin window.open lets us
+  // do this, so every slider/curve/GR-meter keeps working exactly as-is with
+  // zero duplicated logic. The only catch: document.getElementById() only
+  // searches the document it's called on, and ~200 call sites in this file
+  // assume "the" document is wherever the element currently lives. Rather than
+  // touch every call site, we patch getElementById once so a miss in the main
+  // document falls through to checking any open popout windows too. ----
+  const popoutWindows = {}; // key -> { win, cards:[{el, marker}] }
+  const _origGetElementById = document.getElementById.bind(document);
+  document.getElementById = function(id){
+    const found = _origGetElementById(id);
+    if(found) return found;
+    for(const key in popoutWindows){
+      const entry = popoutWindows[key];
+      if(entry && entry.win && !entry.win.closed){
+        try{
+          const inPopup = entry.win.document.getElementById(id);
+          if(inPopup) return inPopup;
+        }catch(e){ /* popup navigated away — ignore */ }
+      }
+    }
+    return null;
+  };
+
+  function refreshMovedCurves(){
+    try{ EQ_CARD_CURVES.forEach(buildEqCardCurveSvg); }catch(e){}
+    try{ COMP_CURVES.forEach(buildCompCurveSvg); }catch(e){}
+    try{ buildSatCurveSvg(); }catch(e){}
+  }
+
+  function togglePopoutGroup(key, groupSelector, title, btnId){
+    if(popoutWindows[key] && !popoutWindows[key].win.closed){
+      popoutWindows[key].win.focus();
+      return;
+    }
+    const nodeList = document.querySelectorAll ? Array.from(document.querySelectorAll(groupSelector)) : [];
+    if(nodeList.length === 0) return;
+    const win = window.open('', 'aiMasteringPopout_'+key, 'width=460,height=820');
+    if(!win) return;
+    const doc = win.document;
+    doc.open();
+    doc.write(`<!DOCTYPE html><html><head><title>${title}</title><meta charset="utf-8"></head><body style="background:var(--bg); margin:0; padding:16px;"><div class="band-grid" id="popoutGrid" style="display:flex; flex-wrap:wrap; gap:16px;"></div></body></html>`);
+    doc.close();
+    // clone the app's one <style> block so moved cards keep their look (incl. CSS vars)
+    document.querySelectorAll('style').forEach(styleNode=>{
+      doc.head.appendChild(styleNode.cloneNode(true));
+    });
+
+    const placeholders = [];
+    const targetGrid = doc.getElementById('popoutGrid');
+    nodeList.forEach(card=>{
+      const marker = document.createComment('popout-slot-'+key);
+      card.parentNode.insertBefore(marker, card);
+      placeholders.push({ el: card, marker });
+      targetGrid.appendChild(card); // cross-document appendChild auto-adopts the node
+    });
+
+    popoutWindows[key] = { win, title, cards: placeholders, btnId };
+    if(btnId) document.getElementById(btnId).classList.add('popout-active');
+    refreshMovedCurves();
+
+    win.addEventListener('resize', refreshMovedCurves);
+
+    const watchClosed = setInterval(()=>{
+      if(!win || win.closed){
+        clearInterval(watchClosed);
+        placeholders.forEach(({el, marker})=>{
+          marker.parentNode.insertBefore(el, marker);
+          marker.remove();
+        });
+        delete popoutWindows[key];
+        if(btnId) document.getElementById(btnId).classList.remove('popout-active');
+        refreshMovedCurves();
+      }
+    }, 400);
+  }
+
+  // ---- Unified Pop-out bar: lives in the Mastering panel title, left of the
+  // Glossary button. "EQ" / "Dynamics" / "Live Monitor" are now the ONLY
+  // triggers for popping those sections out (the old separate "Pop out EQ" /
+  // "Pop out Dynamics" / "Pop out" buttons that used to sit inside the
+  // Mixing Desk and Live Monitor panels themselves were removed — everything
+  // lives here now, one place). Each button both opens (when closed) and
+  // focuses (when already open) its target, via the same togglePopoutGroup /
+  // openMonitorPopup functions as before — clicking it while it's the
+  // active window is a harmless no-op re-focus. "Show All" brings every
+  // currently-open popup to the front in one click; this is safe from
+  // popup-blockers because it only ever runs inside a real click handler (a
+  // user gesture), never on a timer. ----
+  document.getElementById('popoutEqBtn').addEventListener('click', ()=>{
+    togglePopoutGroup('eq', '.band-card[data-group="eq"]', 'EQ', 'popoutEqBtn');
+  });
+  document.getElementById('popoutDeskBtn').addEventListener('click', ()=>{
+    togglePopoutGroup('desk', '.band-card[data-group="desk"]', 'Dynamics', 'popoutDeskBtn');
+  });
+
+  function getAllOpenPopups(){
+    const list = [];
+    for(const key in popoutWindows){
+      const entry = popoutWindows[key];
+      if(entry && entry.win && !entry.win.closed){
+        const labelKey = key === 'eq' ? 'chipEq' : (key === 'desk' ? 'chipDesk' : null);
+        const label = (labelKey && T[currentLang] && T[currentLang][labelKey]) || entry.title;
+        list.push({ key, label, win: entry.win });
+      }
+    }
+    if(monitorPopup && !monitorPopup.closed){
+      const label = (T[currentLang] && T[currentLang].chipMonitor) || 'Live Monitor';
+      list.push({ key:'monitor', label, win: monitorPopup });
+    }
+    return list;
+  }
+
+  document.getElementById('showAllPopoutsBtn').addEventListener('click', ()=>{
+    getAllOpenPopups().forEach(({win})=>{ try{ win.focus(); }catch(e){} });
+  });
+
+  // Close every open popup together when the main window/tab closes, so the
+  // user never ends up with 1-3 orphaned popup windows floating around.
+  window.addEventListener('beforeunload', ()=>{
+    getAllOpenPopups().forEach(({win})=>{ try{ win.close(); }catch(e){} });
+  });
+
+  // ---- Glossary popup: since descriptions are now hidden inline (to keep
+  // Mixing Desk cards compact), this reads the title+description text live
+  // off whatever DOM the cards currently live in (main window or a popped-out
+  // window) and lists them all in one place. No content is duplicated — this
+  // always reflects the current language automatically. ----
+  let glossaryPopup = null;
+  function collectAllBandCards(){
+    let cards = Array.from(document.querySelectorAll('.band-card'));
+    Object.values(popoutWindows).forEach(entry=>{
+      if(entry.win && !entry.win.closed){
+        try{ cards = cards.concat(Array.from(entry.win.document.querySelectorAll('.band-card'))); }catch(e){}
+      }
+    });
+    return cards;
+  }
+  document.getElementById('glossaryBtn').addEventListener('click', ()=>{
+    if(glossaryPopup && !glossaryPopup.closed){ glossaryPopup.focus(); return; }
+    glossaryPopup = window.open('', 'aiMasteringGlossary', 'width=480,height=820');
+    if(!glossaryPopup) return;
+    const doc = glossaryPopup.document;
+    doc.open();
+    doc.write(`<!DOCTYPE html><html><head><title>Glossary</title><meta charset="utf-8"><style>
+      body{background:#0d0f14;color:#e7e5df;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;margin:0;padding:22px;}
+      h2{font-size:13px;color:#4fd6c4;margin:20px 0 6px;}
+      h2:first-of-type{margin-top:0;}
+      p{font-size:12px;color:#c8c6c0;line-height:1.6;margin:0 0 4px;}
+      hr{border:none;border-top:1px solid #2a2f3a;margin:14px 0;}
+    </style></head><body id="glossaryBody"></body></html>`);
+    doc.close();
+    const body = doc.getElementById('glossaryBody');
+    collectAllBandCards().forEach(card=>{
+      const titleEl = card.querySelector('.band-title');
+      const descEl = card.querySelector('.band-desc');
+      if(!titleEl || !descEl || !descEl.textContent.trim()) return;
+      const h = doc.createElement('h2'); h.textContent = titleEl.textContent.trim();
+      const p = doc.createElement('p'); p.textContent = descEl.textContent.trim();
+      const hr = doc.createElement('hr');
+      body.appendChild(h); body.appendChild(p); body.appendChild(hr);
+    });
+  });
+
   let monitorPopup = null;
 
   function openMonitorPopup(){
@@ -3338,13 +3903,21 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       /* flex:1 so THIS is the element that absorbs any extra vertical space when
          the popup window is resized taller — everything else stays fixed-size. */
       .spectrum-wrap{flex:1 1 auto; min-height:70px; position:relative; background:rgba(255,255,255,0.03); border:1px solid #2a2f3a; border-radius:8px; overflow:hidden; margin-bottom:4px;}
+      .spectrum-axis-label{ position:absolute; font-size:18px; font-weight:700; color:#8b8f9a; letter-spacing:0.02em; pointer-events:none;
+        font-family:'JetBrains Mono','SF Mono',Consolas,monospace; text-shadow:0 0 4px #0d0f14, 0 0 4px #0d0f14, 0 0 4px #0d0f14; }
       .vmeter-row{flex:0 0 auto; display:flex; gap:22px; justify-content:center; align-items:flex-end; margin:10px 0;}
       .vbar-track{width:30px; height:130px; background:rgba(255,255,255,0.06); border-radius:5px; position:relative; overflow:hidden;}
       .vbar-fill{position:absolute; bottom:0; left:0; width:100%; background:linear-gradient(180deg,#ef5350,#f2a541,#4fd6c4); border-radius:5px; transition:height 0.05s linear;}
       .vbar-label{text-align:center; font-size:11px; margin-top:6px; color:#8b8f9a;}
     </style></head><body>
       <div class="mon-label">Live Spectrum</div>
-      <div class="spectrum-wrap"><canvas id="popSpectrum" style="width:100%;height:100%;display:block;"></canvas></div>
+      <div class="spectrum-wrap">
+        <canvas id="popSpectrum" style="width:100%;height:100%;display:block;"></canvas>
+        <span class="spectrum-axis-label" style="top:2px; left:5px;">-30dB</span>
+        <span class="spectrum-axis-label" style="bottom:2px; left:5px;">-100dB</span>
+        <span class="spectrum-axis-label" style="top:2px; right:5px;">20Hz</span>
+        <span class="spectrum-axis-label" style="bottom:2px; right:5px;">20kHz</span>
+      </div>
       <div class="vmeter-row">
         <div><div class="vbar-track"><div class="vbar-fill" id="popVbarL" style="height:0%"></div></div><div class="vbar-label" id="popVbarLVal">L —</div></div>
         <div><div class="vbar-track"><div class="vbar-fill" id="popVbarR" style="height:0%"></div></div><div class="vbar-label" id="popVbarRVal">R —</div></div>
@@ -3360,12 +3933,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     // popup is open, and poll for the popup closing to bring it back — window
     // close events aren't reliably observable cross-window any other way.
     document.getElementById('monitorPanelBody').style.display = 'none';
-    document.getElementById('monitorPoppedOutNote').style.display = 'block';
+    document.getElementById('popoutMonitorBtn').classList.add('popout-active');
     const watchClosed = setInterval(()=>{
       if(!monitorPopup || monitorPopup.closed){
         clearInterval(watchClosed);
         document.getElementById('monitorPanelBody').style.display = '';
-        document.getElementById('monitorPoppedOutNote').style.display = 'none';
+        document.getElementById('popoutMonitorBtn').classList.remove('popout-active');
       }
     }, 400);
   }
@@ -3399,6 +3972,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         corrVal.textContent = '—'; balVal.textContent = '—';
         document.getElementById('monLra').textContent = '—';
         clearGoniometer();
+        resetSpectrumPeaks();
       }
       return;
     }
@@ -3476,8 +4050,13 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
 
     const lo = offlineCtx.createBiquadFilter(); lo.type='lowshelf';
     lo.frequency.value = val('lowFreq'); lo.gain.value = val('lowGain');
+    const subO = offlineCtx.createBiquadFilter(); subO.type='peaking'; subO.frequency.value=60; subO.Q.value=1.0; subO.gain.value=val('subGain');
+    const bassO = offlineCtx.createBiquadFilter(); bassO.type='peaking'; bassO.frequency.value=150; bassO.Q.value=1.0; bassO.gain.value=val('bassGain');
+    const lowmidO = offlineCtx.createBiquadFilter(); lowmidO.type='peaking'; lowmidO.frequency.value=400; lowmidO.Q.value=1.0; lowmidO.gain.value=val('lowmidGain');
     const mid = offlineCtx.createBiquadFilter(); mid.type='peaking';
     mid.frequency.value = val('midFreq'); mid.Q.value = val('midQ'); mid.gain.value = val('midGain');
+    const himidO = offlineCtx.createBiquadFilter(); himidO.type='peaking'; himidO.frequency.value=2500; himidO.Q.value=1.0; himidO.gain.value=val('himidGain');
+    const presenceO = offlineCtx.createBiquadFilter(); presenceO.type='peaking'; presenceO.frequency.value=6000; presenceO.Q.value=1.0; presenceO.gain.value=val('presenceGain');
     const hi = offlineCtx.createBiquadFilter(); hi.type='highshelf';
     hi.frequency.value = val('highFreq'); hi.gain.value = val('highGain');
 
@@ -3496,7 +4075,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const deHpO = offlineCtx.createBiquadFilter(); deHpO.type='highpass'; deHpO.frequency.value=val('deFreq'); deHpO.Q.value=0.7;
     const deLpO = offlineCtx.createBiquadFilter(); deLpO.type='lowpass'; deLpO.frequency.value=val('deFreq'); deLpO.Q.value=0.7;
     const deCompO = offlineCtx.createDynamicsCompressor();
-    deCompO.threshold.value = val('deSens'); deCompO.ratio.value = val('deAmount');
+    const deOnO = document.getElementById('deEnable') ? document.getElementById('deEnable').checked : true;
+    deCompO.threshold.value = deOnO ? val('deSens') : 0; deCompO.ratio.value = deOnO ? val('deAmount') : 1;
     deCompO.attack.value = 0.005; deCompO.release.value = 0.1; deCompO.knee.value = 6;
     const deSumO = offlineCtx.createGain();
 
@@ -3531,7 +4111,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const wMerge = offlineCtx.createChannelMerger(2);
 
     src.connect(dry); dry.connect(offlineCtx.destination);
-    src.connect(lo); lo.connect(mid); mid.connect(hi);
+    src.connect(lo); lo.connect(subO); subO.connect(bassO); bassO.connect(lowmidO); lowmidO.connect(mid); mid.connect(himidO); himidO.connect(presenceO); presenceO.connect(hi);
     hi.connect(satDryO); hi.connect(satPreO);
     satPreO.connect(satShaperO); satShaperO.connect(satPostO); satPostO.connect(satWetO);
     satDryO.connect(satSumO); satWetO.connect(satSumO);
@@ -3575,9 +4155,22 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     return oc.startRendering();
   }
 
+  let deharshPreviewSource = null;
+
   document.getElementById('deharshPreviewBtn').addEventListener('click', async ()=>{
-    if(!audioBuffer) return;
     const btn = document.getElementById('deharshPreviewBtn');
+    if(deharshPreviewSource){
+      // already playing a preview — this click stops it (this is the fix: there
+      // used to be no way to stop early, it just played out the full ~20s).
+      deharshPreviewSource.onended = null; // avoid the stale-onended race (same
+      // issue as the waveform seek bug) — null it out before manually stopping.
+      try{ deharshPreviewSource.stop(); }catch(e){}
+      deharshPreviewSource.disconnect();
+      deharshPreviewSource = null;
+      btn.textContent = T[currentLang].previewRemoved;
+      return;
+    }
+    if(!audioBuffer) return;
     btn.disabled = true; btn.textContent = T[currentLang].renderingPreview;
     const seconds = Math.min(audioBuffer.duration, 20);
     const [dryBuf, wetBuf] = await Promise.all([
@@ -3590,8 +4183,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       const d = dryBuf.getChannelData(c), w = wetBuf.getChannelData(c), o = diff.getChannelData(c);
       for(let i=0;i<frames;i++) o[i] = d[i]-w[i];
     }
-    const src = audioCtx.createBufferSource(); src.buffer = diff; src.connect(audioCtx.destination); src.start();
-    btn.disabled = false; btn.textContent = T[currentLang].previewRemoved;
+    const src = audioCtx.createBufferSource(); src.buffer = diff; src.connect(audioCtx.destination);
+    src.onended = () => {
+      if(deharshPreviewSource === src){ deharshPreviewSource = null; btn.textContent = T[currentLang].previewRemoved; }
+    };
+    src.start();
+    deharshPreviewSource = src;
+    btn.disabled = false;
+    btn.textContent = T[currentLang].stopPreview;
   });
 
   // ---- Envelope / Sustain Viewer: renders a short window of Original vs
@@ -4265,6 +4864,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     btn.disabled = false; btn.textContent = T[currentLang].runMastering;
     setMode('B');
     updateMasterSummary(masteredBuffer);
+    logEvent('Render', 'Run Mastering', snapshotParams());
     renderEnvelopeView(); // auto-refresh so the decay-shape check is never stale
   });
 
@@ -4286,6 +4886,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     if(selectedLoudnessTarget === 'louder') await pushLouder();
     else await calibrateToTarget(parseFloat(selectedLoudnessTarget));
     btn.disabled = false; btn.textContent = prevLabel;
+    logEvent('Render', `Final Mastering (target: ${selectedLoudnessTarget === 'louder' ? 'Louder' : selectedLoudnessTarget + ' LUFS'})`, snapshotParams());
     renderEnvelopeView(); // Final Mastering re-renders the master too — keep the envelope check in sync
   });
 
@@ -4315,6 +4916,15 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     if(downloadFormat==='mp3') updateDlBtnLabel();
   });
 
+  // ---- Main Download button: prefers a real native "Save As" dialog
+  // (showSaveFilePicker — same mechanism Save Settings / Download Log
+  // already use successfully) so the person can choose the folder and
+  // rename the file themselves, instead of silently auto-downloading a
+  // fixed name into the browser's default Downloads folder every time
+  // (which is what the plain <a download> fallback below does, and what
+  // this used to do unconditionally). Falls back to that <a download> only
+  // on browsers without the picker API, or if the person's browser rejects
+  // the picker for a reason other than them cancelling it. ----
   document.getElementById('dlBtn').addEventListener('click', async ()=>{
     if(!audioBuffer) return;
     const btn = document.getElementById('dlBtn');
@@ -4324,7 +4934,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       let rendered = masteredBuffer || await renderMaster();
 
       const baseName = fileNameLabel.textContent.replace(/\.[^.]+$/,'');
-      let blob, ext;
+      let blob, ext, mime;
 
       if(downloadFormat === 'wav'){
         const targetRate = document.getElementById('sampleRateSelect').value;
@@ -4333,7 +4943,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         }
         const bitDepth = parseInt(document.getElementById('bitDepthSelect').value);
         blob = audioBufferToWav(rendered, bitDepth);
-        ext = 'wav';
+        ext = 'wav'; mime = 'audio/wav';
       } else {
         if(typeof lamejs === 'undefined'){
           alert('The MP3 encoder did not load correctly in this browser. Try WAV instead.');
@@ -4342,19 +4952,336 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         }
         const kbps = parseInt(document.getElementById('mp3BitrateSelect').value);
         blob = audioBufferToMp3(rendered, kbps);
-        ext = 'mp3';
+        ext = 'mp3'; mime = 'audio/mpeg';
+      }
+
+      const suggestedName = `mastered_${baseName}.${ext}`;
+      if(window.showSaveFilePicker){
+        try{
+          const handle = await window.showSaveFilePicker({
+            suggestedName,
+            types: [{ description: ext.toUpperCase()+' audio', accept: {[mime]: ['.'+ext]} }]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          return; // saved via the native dialog — skip the <a download> fallback below
+        }catch(e){
+          if(e && e.name === 'AbortError') return; // user cancelled the Save dialog — don't fall back to auto-download
+          console.log('showSaveFilePicker failed, falling back to download:', e);
+        }
       }
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `mastered_${baseName}.${ext}`;
+      a.download = suggestedName;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
     } finally {
       btn.disabled = false; btn.textContent = prevLabel;
     }
   });
+
+  // ---- Download Bundle: audio + Settings + Log, all with the same name.
+  //
+  // Two mechanisms depending on how this page was opened:
+  // - Normal (http/https, e.g. the Netlify deploy): one native folder pick
+  //   (showDirectoryPicker, mode:'readwrite') grants a handle that all
+  //   three files get written into silently, no further dialogs.
+  // - Opened directly as a local file (file:// — index.html double-clicked
+  //   or dragged into the browser): Chrome's folder picker refuses to
+  //   grant ANY folder under a file:// origin ("can't open this folder,
+  //   contains system files" — this is an origin-level restriction, not a
+  //   specific-folder block, so it fails no matter which folder is picked,
+  //   confirmed repeatedly). #bundleFolderSection is hidden in this case
+  //   and Save instead shows three native Save-As dialogs (audio, settings,
+  //   log) sharing one `id` so Chrome reopens each already pointed at the
+  //   folder used for the previous one — this is exactly the same
+  //   mechanism Save Settings / Download Log already use successfully
+  //   under file://, just done three times in a row. ----
+  const IS_FILE_PROTOCOL = location.protocol === 'file:';
+  let pendingBundleDirHandle = null;
+
+  document.getElementById('dlBundleBtn').addEventListener('click', ()=>{
+    if(!audioBuffer) return;
+    const hasDirPicker = !!window.showDirectoryPicker;
+    const hasSavePicker = !!window.showSaveFilePicker;
+    if(!hasDirPicker && !hasSavePicker){
+      alert('This needs Chrome or Edge (File System Access API) — use the regular Download button instead, then Save Settings to File / Download Log separately.');
+      return;
+    }
+    pendingBundleDirHandle = null;
+    const baseName = fileNameLabel.textContent.replace(/\.[^.]+$/,'');
+    const ext = downloadFormat === 'wav' ? 'wav' : 'mp3';
+    const input = document.getElementById('bundleNameInput');
+    input.value = `mastered_${baseName}`;
+
+    const folderSection = document.getElementById('bundleFolderSection');
+    const saveBtn = document.getElementById('bundleModalSave');
+    const useFolderFlow = IS_FILE_PROTOCOL ? false : hasDirPicker;
+    if(useFolderFlow){
+      folderSection.style.display = '';
+      const statusEl = document.getElementById('bundleFolderStatus');
+      statusEl.textContent = (T[currentLang] && T[currentLang].bundleModalNoFolder) || T.en.bundleModalNoFolder;
+      statusEl.classList.remove('chosen');
+      saveBtn.disabled = true;
+      document.getElementById('bundleModalSubText').textContent = (T[currentLang] && T[currentLang].bundleModalSub) || T.en.bundleModalSub;
+    } else {
+      // file:// (or a browser with showSaveFilePicker but no
+      // showDirectoryPicker) — skip the folder step entirely, Save will
+      // pack everything into one .zip via a single native Save dialog.
+      folderSection.style.display = 'none';
+      saveBtn.disabled = false;
+      document.getElementById('bundleModalSubText').textContent = (T[currentLang] && T[currentLang].bundleModalSubFileProtocol) || T.en.bundleModalSubFileProtocol;
+    }
+    updateBundleNamePreview(ext);
+    document.getElementById('bundleNameOverlay').classList.remove('hidden');
+    input.focus(); input.select();
+  });
+
+  function updateBundleNamePreview(ext){
+    const name = (document.getElementById('bundleNameInput').value || 'mastered').trim() || 'mastered';
+    const folderSection = document.getElementById('bundleFolderSection');
+    const usingFolderFlow = folderSection && folderSection.style.display !== 'none';
+    document.getElementById('bundleNamePreview').textContent = usingFolderFlow
+      ? `${name}.${ext}  +  ${name}_settings.txt  +  ${name}_log.txt`
+      : `${name}.zip  (contains ${name}.${ext} + settings.txt + log.txt)`;
+  }
+  document.getElementById('bundleNameInput').addEventListener('input', ()=>{
+    updateBundleNamePreview(downloadFormat === 'wav' ? 'wav' : 'mp3');
+  });
+  document.getElementById('bundleNameInput').addEventListener('keydown', e=>{
+    if(e.key === 'Enter' && !document.getElementById('bundleModalSave').disabled){
+      e.preventDefault(); document.getElementById('bundleModalSave').click();
+    } else if(e.key === 'Escape'){ e.preventDefault(); closeBundleModal(); }
+  });
+
+  document.getElementById('bundleFolderBtn').addEventListener('click', async ()=>{
+    const folderHint = (T[currentLang] && T[currentLang].dlBundleFolderHint) || T.en.dlBundleFolderHint;
+    try{
+      pendingBundleDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    }catch(e){
+      // AbortError = the user genuinely hit Cancel — nothing went wrong,
+      // exit quietly. Anything else is most likely the browser refusing a
+      // "well-known" folder (Downloads/Documents/Desktop/a drive root) or
+      // denying the readwrite permission prompt — worth explaining so it
+      // isn't mistaken for the button being broken.
+      if(e && e.name !== 'AbortError'){
+        console.log('Folder picker failed:', e);
+        alert(folderHint);
+      }
+      return;
+    }
+    const statusEl = document.getElementById('bundleFolderStatus');
+    statusEl.textContent = '📁 ' + pendingBundleDirHandle.name;
+    statusEl.classList.add('chosen');
+    document.getElementById('bundleModalSave').disabled = false;
+  });
+
+  function closeBundleModal(){
+    document.getElementById('bundleNameOverlay').classList.add('hidden');
+    pendingBundleDirHandle = null;
+  }
+  document.getElementById('bundleModalCancel').addEventListener('click', closeBundleModal);
+  document.getElementById('bundleNameOverlay').addEventListener('click', e=>{
+    if(e.target.id === 'bundleNameOverlay') closeBundleModal();
+  });
+
+  document.getElementById('bundleModalSave').addEventListener('click', async ()=>{
+    const dirHandle = pendingBundleDirHandle; // null on the file:// fallback path — that's expected
+    const useFolderFlow = document.getElementById('bundleFolderSection').style.display !== 'none';
+    if(useFolderFlow && !dirHandle) return; // Save is disabled until a folder is chosen, but guard anyway
+
+    // sanitize: strip characters that are invalid in filenames on Windows/
+    // macOS, and fall back to a safe default if the user clears the field.
+    let bundleName = document.getElementById('bundleNameInput').value.trim().replace(/[\\/:*?"<>|]/g, '_');
+    if(!bundleName) bundleName = 'mastered';
+    closeBundleModal();
+
+    const folderHint = (T[currentLang] && T[currentLang].dlBundleFolderHint) || T.en.dlBundleFolderHint;
+    const btn = document.getElementById('dlBundleBtn');
+    const prevLabel = btn.textContent;
+    btn.disabled = true; btn.textContent = T[currentLang].rendering;
+    try{
+      let rendered = masteredBuffer || await renderMaster();
+      let blob, ext, mime;
+      if(downloadFormat === 'wav'){
+        const targetRate = document.getElementById('sampleRateSelect').value;
+        if(targetRate !== 'original' && parseInt(targetRate) !== rendered.sampleRate){
+          rendered = await resampleBuffer(rendered, parseInt(targetRate));
+        }
+        const bitDepth = parseInt(document.getElementById('bitDepthSelect').value);
+        blob = audioBufferToWav(rendered, bitDepth);
+        ext = 'wav'; mime = 'audio/wav';
+      } else {
+        if(typeof lamejs === 'undefined'){
+          alert('The MP3 encoder did not load correctly in this browser. Try WAV instead.');
+          return;
+        }
+        const kbps = parseInt(document.getElementById('mp3BitrateSelect').value);
+        blob = audioBufferToMp3(rendered, kbps);
+        ext = 'mp3'; mime = 'audio/mpeg';
+      }
+
+      if(useFolderFlow){
+        const audioHandle = await dirHandle.getFileHandle(`${bundleName}.${ext}`, {create:true});
+        const aw = await audioHandle.createWritable(); await aw.write(blob); await aw.close();
+
+        const settingsHandle = await dirHandle.getFileHandle(`${bundleName}_settings.txt`, {create:true});
+        const sw = await settingsHandle.createWritable(); await sw.write(getSettingsText()); await sw.close();
+
+        const logHandle = await dirHandle.getFileHandle(`${bundleName}_log.txt`, {create:true});
+        const lw = await logHandle.createWritable(); await lw.write(getLogText()); await lw.close();
+      } else {
+        // file:// fallback: showDirectoryPicker doesn't work under a
+        // file:// origin at all (see IS_FILE_PROTOCOL above), and
+        // showSaveFilePicker can only ever save ONE file per dialog with no
+        // way to reach its folder — so three separate files would mean
+        // three separate Save dialogs, which was the whole thing being
+        // fixed here. Instead: zip the three files together (audio +
+        // settings + log) with the small in-file ZIP writer above, and
+        // save that as a single .zip through exactly one native Save
+        // dialog. One click, one dialog, one file — matches the
+        // folder-flow's "single action" feel even though the underlying
+        // mechanism has to be different under file://.
+        const audioBytes = new Uint8Array(await blob.arrayBuffer());
+        const settingsBytes = new TextEncoder().encode(getSettingsText());
+        const logBytes = new TextEncoder().encode(getLogText());
+        const zipBlob = buildZip([
+          { name: `${bundleName}.${ext}`, data: audioBytes },
+          { name: `${bundleName}_settings.txt`, data: settingsBytes },
+          { name: `${bundleName}_log.txt`, data: logBytes },
+        ]);
+        try{
+          const handle = await window.showSaveFilePicker({
+            suggestedName: `${bundleName}.zip`,
+            types: [{ description: 'ZIP archive', accept: {'application/zip': ['.zip']} }]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(zipBlob);
+          await writable.close();
+        }catch(e){
+          if(e && e.name === 'AbortError'){ btn.textContent = prevLabel; btn.disabled = false; return; }
+          throw e; // handled by the outer catch below
+        }
+      }
+
+      logEvent('Export', useFolderFlow
+        ? `Downloaded bundle: ${bundleName}.${ext} + settings + log`
+        : `Downloaded bundle: ${bundleName}.zip (contains ${bundleName}.${ext} + settings + log)`);
+      btn.textContent = T[currentLang].dlBundleSaved;
+      setTimeout(()=>{ btn.textContent = prevLabel; }, 3500);
+    }catch(e){
+      console.log('Bundle download failed:', e);
+      // NotAllowedError / SecurityError here almost always means the folder
+      // itself is one the browser silently blocks writes into, even though
+      // it let the user select it — same underlying restriction as the
+      // picker-level error above, just surfacing one step later.
+      if(e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')){
+        alert(folderHint);
+      } else {
+        alert('Could not save the bundle — see the browser console for details.\n\n' + folderHint);
+      }
+      btn.textContent = prevLabel;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ---- Minimal ZIP writer (store method, no compression) — used only for
+  // the file:// Download-Bundle fallback below, so the three files (audio +
+  // settings + log) can go out as ONE .zip via a single native Save dialog
+  // instead of three separate ones. No external library: this is a small,
+  // self-contained implementation of the plain ZIP format (local file
+  // headers + central directory + end record), which is all that's needed
+  // since we're not compressing anything. Keeps the "no external requests,
+  // everything bundled in this one file" principle intact. ----
+  function crc32(bytes){
+    if(!crc32.table){
+      const t = new Uint32Array(256);
+      for(let n=0; n<256; n++){
+        let c = n;
+        for(let k=0; k<8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        t[n] = c;
+      }
+      crc32.table = t;
+    }
+    let crc = 0xFFFFFFFF;
+    for(let i=0; i<bytes.length; i++) crc = (crc >>> 8) ^ crc32.table[(crc ^ bytes[i]) & 0xFF];
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function dosDateTime(date){
+    const time = ((date.getHours() & 0x1F) << 11) | ((date.getMinutes() & 0x3F) << 5) | ((date.getSeconds() >> 1) & 0x1F);
+    const dosDate = (((date.getFullYear()-1980) & 0x7F) << 9) | (((date.getMonth()+1) & 0xF) << 5) | (date.getDate() & 0x1F);
+    return { time, date: dosDate };
+  }
+
+  // files: [{ name: string, data: Uint8Array }] -> Blob (application/zip)
+  function buildZip(files){
+    const now = dosDateTime(new Date());
+    const localParts = [], centralParts = [];
+    let offset = 0;
+
+    files.forEach(({name, data})=>{
+      const nameBytes = new TextEncoder().encode(name);
+      const crc = crc32(data);
+      const size = data.length;
+
+      const local = new DataView(new ArrayBuffer(30));
+      local.setUint32(0, 0x04034b50, true);
+      local.setUint16(4, 20, true);          // version needed
+      local.setUint16(6, 0, true);           // flags
+      local.setUint16(8, 0, true);           // method: 0 = store
+      local.setUint16(10, now.time, true);
+      local.setUint16(12, now.date, true);
+      local.setUint32(14, crc, true);
+      local.setUint32(18, size, true);       // compressed size
+      local.setUint32(22, size, true);       // uncompressed size
+      local.setUint16(26, nameBytes.length, true);
+      local.setUint16(28, 0, true);          // extra field length
+      localParts.push(new Uint8Array(local.buffer), nameBytes, data);
+
+      const central = new DataView(new ArrayBuffer(46));
+      central.setUint32(0, 0x02014b50, true);
+      central.setUint16(4, 20, true);        // version made by
+      central.setUint16(6, 20, true);        // version needed
+      central.setUint16(8, 0, true);         // flags
+      central.setUint16(10, 0, true);        // method
+      central.setUint16(12, now.time, true);
+      central.setUint16(14, now.date, true);
+      central.setUint32(16, crc, true);
+      central.setUint32(20, size, true);
+      central.setUint32(24, size, true);
+      central.setUint16(28, nameBytes.length, true);
+      central.setUint16(30, 0, true);        // extra length
+      central.setUint16(32, 0, true);        // comment length
+      central.setUint16(34, 0, true);        // disk number start
+      central.setUint16(36, 0, true);        // internal attrs
+      central.setUint32(38, 0, true);        // external attrs
+      central.setUint32(42, offset, true);   // offset of local header
+      centralParts.push(new Uint8Array(central.buffer), nameBytes);
+
+      offset += local.buffer.byteLength + nameBytes.length + size;
+    });
+
+    const centralStart = offset;
+    let centralSize = 0;
+    centralParts.forEach(p => centralSize += p.length);
+
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true);
+    end.setUint16(4, 0, true);
+    end.setUint16(6, 0, true);
+    end.setUint16(8, files.length, true);
+    end.setUint16(10, files.length, true);
+    end.setUint32(12, centralSize, true);
+    end.setUint32(16, centralStart, true);
+    end.setUint16(20, 0, true);
+
+    return new Blob([...localParts, ...centralParts, new Uint8Array(end.buffer)], { type: 'application/zip' });
+  }
 
   // resample a rendered buffer to a new sample rate by playing it through an
   // OfflineAudioContext running at that rate (browser handles the resampling)
@@ -4464,6 +5391,13 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       panelLiveMonitor: 'Live Monitor',
       panelMixingDesk: 'Mixing Desk',
       panelEditHistory: 'Edit History',
+      btnLogDownload: '📜 Download Log', logNote: 'The Log (unlike Undo) never overwrites anything, it\'s a running record of every edit, preset choice, undo, and jump you make, in order, even ones you later undid. Useful as a provenance record of how much of the final result came from manual, human-directed work.',
+      btnDlBundle: '📦 Download with Settings + Log (pick a folder)', dlBundleNote: 'Type a name, then pick one folder — the audio file, Settings file, and Log file all save there together with that name. Needs Chrome or Edge.', dlBundleSaved: '✓ Saved 3 files',
+      dlBundleFolderHint: '⚠ Your browser won\'t let you pick "Downloads", "Documents", "Desktop", or a drive\'s top level directly (blocked for safety) — create or choose a subfolder inside one of those instead.',
+      bundleModalTitle: 'Save with Settings + Log', bundleModalSub: 'Choose a folder and a name — the audio file, Settings file, and Log file will all be saved there together.',
+      bundleModalSubFileProtocol: 'Enter a name, then click Save — since this page is open as a local file, the audio, Settings, and Log files will be packed into one .zip and saved with a single native Save dialog.',
+      bundleModalFolderLabel: 'Folder', bundleModalChooseFolder: '📁 Choose folder…', bundleModalNoFolder: 'No folder selected yet', bundleModalNameLabel: 'File name',
+      bundleModalCancel: 'Cancel', bundleModalSave: '💾 Save',
       panelOutputSummary: 'Mastered Output Summary',
       panelLoudnessTarget: 'Loudness Target',
       panelDownload: 'Download',
@@ -4480,8 +5414,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       runMastering: '🎚 Run Mastering', rendering: 'Rendering…',
       finalMastering: '🎯 Final Mastering', calibrating: 'Calibrating…',
       previewRemoved: '🎧 Preview removed content', renderingPreview: 'Rendering preview…',
+      stopPreview: '⏹ Stop Preview', deEnableLabel: 'On, apply De-Harsher',
       undoBtn: '↩ Undo one step',
       bandLowShelf: 'Low Shelf', bandMidPeak: 'Mid Peak', bandHighShelf: 'High Shelf',
+      bandSub: 'Sub', descSub: 'Narrow band right around the sub-bass fundamental. Separate from Low Shelf, which cuts everything below its corner, this only touches 60Hz itself, so you can shape the sub without dragging Bass/Low-Mid down with it.',
+      bandBass: 'Bass', descBass: 'Narrow band around the body of the bass/808 (not the sub fundamental, not the low-mid mud), punch and weight live here.',
+      bandLowMid: 'Low-Mid', descLowMid: 'The classic boxy/muddy zone. Cutting here clears mud without touching Sub or Bass, this is the band to reach for instead of a broad Low Shelf cut when only this range feels congested.',
+      bandHiMid: 'Hi-Mid', descHiMid: 'Vocal/lead presence and consonant clarity live here, separate from Presence (6kHz) so you can push clarity without also pushing sibilance.',
+      bandPresence: 'Presence', descPresence: 'Cymbal shimmer, hi-hat edge, sibilance (S sounds). Separate from Air (High Shelf) so you can tame or lift this specific harshness zone without also touching the very top end.',
       bandCompressor: 'Compressor', bandLoudness: 'Loudness / Limiter', bandDeharsher: 'De-Harsher',
       bandBassProtect: 'Bass Protect',
       descBassProtect: 'Splits everything below the crossover off BEFORE the main Compressor, and compresses it separately with its own Threshold/Ratio/Attack/Release. Stops loud hits elsewhere (hats, chants, cymbals) from ducking or chopping up sustained bass/808s in the main Compressor\'s gain reduction — the two bands stop fighting over the same reduction.',
@@ -4522,10 +5462,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       descWidth: 'Splits the signal into mid (center) and side (stereo difference) and scales the side amount. Below 100% narrows toward mono; above 100% widens the stereo image. Mono sources are unaffected since they have no side signal to begin with.',
       eqCurveHint: 'Drag the three dots on the spectrum to set Low Shelf / Mid Peak / High Shelf directly — the Mixing Desk numbers below move with them.',
       gonioHint: 'Live goniometer — the more the shape leans toward horizontal, the wider the stereo image. A straight vertical line means mono.',
+      gonioSideTitle: 'Stereo Width', gonioHintCard: 'The live goniometer for this is shown next to the waveforms above — it stays fixed there so it keeps working even while this card is popped out.',
       monTruePeak: 'Stereo True Peak', monLiveLufs: 'Live LUFS (momentary)',
       monAvgLufs: 'Average LUFS (this playback)', monCorrelation: 'Correlation', monBalance: 'Balance (L / R)',
       monLiveSpectrum: 'Live Spectrum', monLra: 'Loudness Range (LRA)', monLraNote: 'How much the loudness varies through the track. Very low (roughly under 3 LU) often means it\'s been squashed flat by heavy compression/limiting.',
       btnPopoutMonitor: '⇱ Pop out',
+      btnPopoutEq: '⇱ Pop out EQ', btnPopoutDesk: '⇱ Pop out Dynamics', btnShowAllPopouts: '⇈ Show All',
+      chipEq: 'EQ', chipDesk: 'Dynamics', chipMonitor: 'Live Monitor',
+      btnGlossary: '❓ Glossary',
       monPoppedOutNote: 'Popped out to a separate window — close that window to bring this panel back here.',
       waveLabelSpectrum: 'Spectrum (averaged across the track)',
       waveLabelOriginal: 'Original waveform', waveLabelMaster: 'Master waveform',
@@ -4618,6 +5562,13 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       panelLiveMonitor: 'Live Monitor',
       panelMixingDesk: 'Mixing Desk',
       panelEditHistory: '수정 히스토리',
+      btnLogDownload: '📜 로그 다운로드', logNote: '로그는(Undo와 다르게) 절대 덮어써지지 않아요, 모든 편집, 프리셋 선택, undo, jump가 실제로 일어난 순서 그대로 다 기록돼요, 나중에 되돌린 것까지 전부요. 최종 결과물에 사람이 얼마나 직접 관여했는지 증명하는 기록으로 쓸 수 있어요.',
+      btnDlBundle: '📦 설정+로그와 함께 다운로드 (폴더 선택)', dlBundleNote: '이름을 입력하고 폴더 하나만 고르면, 음원 파일·Settings 파일·Log 파일이 그 이름으로 한 번에 저장돼요, 크롬이나 엣지 브라우저 필요해요.', dlBundleSaved: '✓ 파일 3개 저장됨',
+      dlBundleFolderHint: '⚠ "다운로드", "문서", "바탕화면", 드라이브 최상위 폴더는 브라우저가 보안상 직접 선택하지 못하게 막아요 — 그 안에 새 폴더를 만들거나 하위 폴더를 골라주세요.',
+      bundleModalTitle: '설정+로그와 함께 저장', bundleModalSub: '폴더와 이름을 정하면, 음원 파일·Settings 파일·Log 파일이 그 안에 함께 저장돼요.',
+      bundleModalSubFileProtocol: '이름을 입력하고 저장을 누르세요 — 이 페이지를 로컬 파일로 열어서, 음원·Settings·Log 파일을 zip 하나로 묶어서 저장창 딱 1번으로 저장돼요.',
+      bundleModalFolderLabel: '폴더', bundleModalChooseFolder: '📁 폴더 선택…', bundleModalNoFolder: '아직 폴더를 선택하지 않았어요', bundleModalNameLabel: '파일 이름',
+      bundleModalCancel: '취소', bundleModalSave: '💾 저장',
       panelOutputSummary: '마스터링 결과 요약',
       panelLoudnessTarget: 'Loudness Target',
       panelDownload: '다운로드',
@@ -4634,8 +5585,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       runMastering: '🎚 런 마스터링', rendering: '렌더링 중…',
       finalMastering: '🎯 파이널 마스터링', calibrating: '보정 중…',
       previewRemoved: '🎧 제거된 성분만 듣기', renderingPreview: '프리뷰 렌더링 중…',
+      stopPreview: '⏹ 프리뷰 정지', deEnableLabel: '켜짐, De-Harsher 적용',
       undoBtn: '↩ 한 단계 되돌리기',
       bandLowShelf: 'Low Shelf', bandMidPeak: 'Mid Peak', bandHighShelf: 'High Shelf',
+      bandSub: '서브', descSub: '서브베이스 기본음 바로 그 지점만 좁게 건드려요. Low Shelf는 그 코너 아래를 전부 같이 깎지만, 이건 60Hz 자체만 건드려서 Bass/Low-Mid까지 같이 끌려 내려가지 않게 서브만 따로 다듬을 수 있어요.',
+      bandBass: '베이스', descBass: '베이스/808의 몸통(서브 기본음도 아니고 로우미드 텁텁함도 아닌), 펀치감과 무게감이 여기서 나와요.',
+      bandLowMid: '로우미드', descLowMid: '전형적으로 박스러운/텁텁한 구간. 여기만 깎으면 Sub나 Bass는 안 건드리고 텁텁함만 정리돼요, 이 대역만 답답할 땐 넓은 Low Shelf 컷 대신 이걸 쓰세요.',
+      bandHiMid: '하이미드', descHiMid: '보컬/리드의 존재감과 딕션 선명도가 여기서 나와요, Presence(6kHz)랑 분리돼있어서 치찰음은 안 키우고 선명도만 올릴 수 있어요.',
+      bandPresence: '프레즌스', descPresence: '심벌 샤인, 하이햇 엣지, 치찰음(스 발음) 구간. Air(High Shelf)랑 분리돼있어서 이 거친 구간만 콕 집어 눌러주거나 살릴 수 있어요, 맨 꼭대기 대역은 안 건드리고요.',
       bandCompressor: 'Compressor', bandLoudness: 'Loudness / Limiter', bandDeharsher: 'De-Harsher',
       bandBassProtect: '베이스 프로텍트',
       descBassProtect: '크로스오버 아래 저역을 메인 컴프레서 이전에 완전히 분리해서, 자체 Threshold/Ratio/Attack/Release로 따로 압축합니다. 하이햇·챈트·심벌 같은 다른 소리가 메인 컴프레서를 세게 눌러도 저역(베이스/808) 서스테인이 덩달아 끊기지 않게 막아줘요 — 두 대역이 같은 게인 리덕션을 두고 서로 간섭하지 않습니다.',
@@ -4676,10 +5633,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       descWidth: '신호를 mid(가운데)와 side(좌우 차이 성분)로 나눠서 side의 양을 조절해요. 100% 아래로 내리면 모노에 가까워지고, 100% 위로 올리면 스테레오 폭이 넓어져요. 모노 음원은 애초에 side 성분이 없어서 영향을 안 받아요.',
       eqCurveHint: '스펙트럼 위 세 개의 점을 드래그하면 Low Shelf / Mid Peak / High Shelf를 바로 조정할 수 있어요 — 아래 Mixing Desk 숫자도 같이 움직여요.',
       gonioHint: '라이브 고니오미터예요 — 모양이 가로로 퍼질수록 스테레오 폭이 넓다는 뜻이고, 세로 일자선이면 모노예요.',
+      gonioSideTitle: 'Stereo Width', gonioHintCard: '실시간 고니오미터는 위쪽 파형 옆에 고정으로 표시돼요 — 이 카드를 팝업으로 분리해도 계속 잘 작동하도록 고정해뒀어요.',
       monTruePeak: 'Stereo True Peak', monLiveLufs: 'Live LUFS (momentary)',
       monAvgLufs: '평균 LUFS (이번 재생)', monCorrelation: 'Correlation', monBalance: 'Balance (L / R)',
       monLiveSpectrum: '실시간 스펙트럼', monLra: '라우드니스 레인지 (LRA)', monLraNote: '곡 안에서 라우드니스가 얼마나 변하는지 나타내요. 아주 낮으면(대략 3 LU 미만) 강한 압축/리미팅으로 평평하게 눌렸을 가능성이 커요.',
       btnPopoutMonitor: '⇱ 새 창으로',
+      btnPopoutEq: '⇱ EQ 새 창으로', btnPopoutDesk: '⇱ 다이내믹스 새 창으로', btnShowAllPopouts: '⇈ 전부 보이기',
+      chipEq: 'EQ', chipDesk: '다이내믹스', chipMonitor: 'Live Monitor',
+      btnGlossary: '❓ 용어 설명',
       monPoppedOutNote: '별도 창으로 분리됐어요 — 그 창을 닫으면 여기로 다시 돌아와요.',
       waveLabelSpectrum: '스펙트럼 (트랙 전체 평균)',
       waveLabelOriginal: '오리지널 파형', waveLabelMaster: '마스터 파형',
@@ -4772,6 +5733,13 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       panelLiveMonitor: 'Live Monitor',
       panelMixingDesk: 'Mixing Desk',
       panelEditHistory: 'Historial de Ediciones',
+      btnLogDownload: '📜 Descargar Registro', logNote: 'El Registro (a diferencia de Undo) nunca sobrescribe nada, es un historial continuo de cada edicion, eleccion de preset, deshacer y salto que hagas, en orden, incluso los que despues deshiciste. Util como registro de procedencia de cuanto trabajo manual dirigido por humanos hay en el resultado final.',
+      btnDlBundle: '📦 Descargar con Ajustes + Registro (elegir carpeta)', dlBundleNote: 'Escribe un nombre y elige una carpeta — el audio, los Ajustes y el Registro se guardan ahí juntos con ese nombre. Requiere Chrome o Edge.', dlBundleSaved: '✓ 3 archivos guardados',
+      dlBundleFolderHint: '⚠ Tu navegador no permite elegir directamente "Descargas", "Documentos", "Escritorio" ni la raíz de una unidad (bloqueado por seguridad) — crea o elige una subcarpeta dentro de una de ellas.',
+      bundleModalTitle: 'Guardar con Ajustes + Registro', bundleModalSub: 'Elige una carpeta y un nombre — el audio, los Ajustes y el Registro se guardarán ahí juntos.',
+      bundleModalSubFileProtocol: 'Escribe un nombre y pulsa Guardar — como esta página está abierta como archivo local, el audio, los Ajustes y el Registro se empaquetarán en un .zip y se guardarán con un único diálogo nativo.',
+      bundleModalFolderLabel: 'Carpeta', bundleModalChooseFolder: '📁 Elegir carpeta…', bundleModalNoFolder: 'Todavía no se ha elegido una carpeta', bundleModalNameLabel: 'Nombre del archivo',
+      bundleModalCancel: 'Cancelar', bundleModalSave: '💾 Guardar',
       panelOutputSummary: 'Resumen del Master',
       panelLoudnessTarget: 'Loudness Target',
       panelDownload: 'Descargar',
@@ -4788,8 +5756,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       runMastering: '🎚 Ejecutar Masterización', rendering: 'Renderizando…',
       finalMastering: '🎯 Masterización Final', calibrating: 'Calibrando…',
       previewRemoved: '🎧 Escuchar lo eliminado', renderingPreview: 'Renderizando vista previa…',
+      stopPreview: '⏹ Detener vista previa', deEnableLabel: 'Activado, aplicar De-Harsher',
       undoBtn: '↩ Deshacer un paso',
       bandLowShelf: 'Low Shelf', bandMidPeak: 'Mid Peak', bandHighShelf: 'High Shelf',
+      bandSub: 'Sub', descSub: 'Banda estrecha justo en la fundamental del sub-bajo. Separada del Low Shelf, que corta todo por debajo de su punto, esto solo toca los 60Hz en si, asi que puedes dar forma al sub sin arrastrar Bass/Low-Mid con el.',
+      bandBass: 'Bass', descBass: 'Banda estrecha alrededor del cuerpo del bajo/808 (ni la fundamental del sub, ni el barro de low-mid), aqui viven la pegada y el peso.',
+      bandLowMid: 'Low-Mid', descLowMid: 'La tipica zona cajosa/embarrada. Cortar aqui limpia el barro sin tocar Sub ni Bass, esta es la banda a usar en vez de un corte amplio de Low Shelf cuando solo este rango se siente congestionado.',
+      bandHiMid: 'Hi-Mid', descHiMid: 'Aqui viven la presencia vocal/lead y la claridad de las consonantes, separado de Presence (6kHz) para poder subir claridad sin subir tambien la sibilancia.',
+      bandPresence: 'Presence', descPresence: 'Brillo de platillos, filo del hi-hat, sibilancia (sonidos S). Separado de Air (High Shelf) para poder domar o realzar esta zona especifica de aspereza sin tocar tambien el extremo superior.',
       bandCompressor: 'Compressor', bandLoudness: 'Loudness / Limiter', bandDeharsher: 'De-Harsher',
       bandBassProtect: 'Protección de Graves',
       descBassProtect: 'Separa todo lo que está por debajo del cruce ANTES del Compresor principal, y lo comprime aparte con su propio Threshold/Ratio/Attack/Release. Evita que golpes fuertes en otra parte (hi-hats, coros, platillos) hundan o corten el sustain de graves/808 en la reducción de ganancia del Compresor principal — las dos bandas dejan de pelear por la misma reducción.',
@@ -4830,10 +5804,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       descWidth: 'Divide la señal en mid (centro) y side (diferencia estéreo) y escala la cantidad de side. Por debajo de 100% se estrecha hacia mono; por encima de 100% amplía la imagen estéreo. Las fuentes mono no se ven afectadas porque no tienen señal side.',
       eqCurveHint: 'Arrastra los tres puntos del espectro para ajustar directamente Low Shelf / Mid Peak / High Shelf — los números del Mixing Desk de abajo se mueven junto con ellos.',
       gonioHint: 'Goniómetro en vivo — cuanto más se incline la forma hacia lo horizontal, más ancha es la imagen estéreo. Una línea vertical recta significa mono.',
+      gonioSideTitle: 'Stereo Width', gonioHintCard: 'El goniómetro en vivo se muestra junto a las formas de onda de arriba — se queda fijo ahí para seguir funcionando aunque esta tarjeta esté separada en otra ventana.',
       monTruePeak: 'Stereo True Peak', monLiveLufs: 'Live LUFS (momentary)',
       monAvgLufs: 'LUFS promedio (esta reproducción)', monCorrelation: 'Correlation', monBalance: 'Balance (L / R)',
       monLiveSpectrum: 'Espectro en Vivo', monLra: 'Rango de Sonoridad (LRA)', monLraNote: 'Cuánto varía la sonoridad a lo largo del tema. Muy bajo (menos de ~3 LU) suele indicar que se aplanó por compresión/limitación fuerte.',
       btnPopoutMonitor: '⇱ Ventana aparte',
+      btnPopoutEq: '⇱ Separar EQ', btnPopoutDesk: '⇱ Separar Dinámica', btnShowAllPopouts: '⇈ Mostrar todas',
+      chipEq: 'EQ', chipDesk: 'Dinámica', chipMonitor: 'Live Monitor',
+      btnGlossary: '❓ Glosario',
       monPoppedOutNote: 'Se separó en una ventana aparte — cierra esa ventana para que vuelva aquí.',
       waveLabelSpectrum: 'Espectro (promedio de toda la pista)',
       waveLabelOriginal: 'Forma de onda original', waveLabelMaster: 'Forma de onda del master',
@@ -4926,6 +5904,13 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       panelLiveMonitor: 'Live Monitor',
       panelMixingDesk: 'Mixing Desk',
       panelEditHistory: '編集履歴',
+      btnLogDownload: '📜 ログをダウンロード', logNote: 'ログは(Undoと違って)何も上書きしません、すべての編集、プリセット選択、undo、jumpを実際に起きた順番でそのまま記録します、後で取り消したものも含めて。最終結果にどれだけ人の手による作業が関わったかを証明する記録として使えます。',
+      btnDlBundle: '📦 設定+ログと一緒にダウンロード(フォルダ選択)', dlBundleNote: '名前を入力してフォルダを1つ選ぶだけで、音声ファイル・Settings・Logがまとめてその名前で保存されます。Chrome または Edge が必要です。', dlBundleSaved: '✓ 3つのファイルを保存しました',
+      dlBundleFolderHint: '⚠ 「ダウンロード」「ドキュメント」「デスクトップ」やドライブの最上位フォルダは、ブラウザが安全のため直接選択できないようにしています — その中に新しいフォルダを作るか、サブフォルダを選んでください。',
+      bundleModalTitle: 'Settings + Logと一緒に保存', bundleModalSub: 'フォルダと名前を選ぶと、音声ファイル・Settingsファイル・Logファイルがまとめてそこに保存されます。',
+      bundleModalSubFileProtocol: '名前を入力して保存を押してください — このページはローカルファイルとして開かれているため、音声・Settings・Logファイルを1つの.zipにまとめて、ネイティブの保存ダイアログ1回で保存します。',
+      bundleModalFolderLabel: 'フォルダ', bundleModalChooseFolder: '📁 フォルダを選択…', bundleModalNoFolder: 'まだフォルダが選択されていません', bundleModalNameLabel: 'ファイル名',
+      bundleModalCancel: 'キャンセル', bundleModalSave: '💾 保存',
       panelOutputSummary: 'マスター結果サマリー',
       panelLoudnessTarget: 'Loudness Target',
       panelDownload: 'ダウンロード',
@@ -4942,8 +5927,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       runMastering: '🎚 ラン・マスタリング', rendering: 'レンダリング中…',
       finalMastering: '🎯 ファイナル・マスタリング', calibrating: '調整中…',
       previewRemoved: '🎧 除去された成分を聴く', renderingPreview: 'プレビューをレンダリング中…',
+      stopPreview: '⏹ プレビューを停止', deEnableLabel: 'オン, De-Harsherを適用',
       undoBtn: '↩ 1ステップ元に戻す',
       bandLowShelf: 'Low Shelf', bandMidPeak: 'Mid Peak', bandHighShelf: 'High Shelf',
+      bandSub: 'サブ', descSub: 'サブベースの基音そのものだけを狭く扱います。Low Shelfはそのコーナー以下を全部一緒に削りますが、これは60Hzそのものだけを触るので、Bass/Low-Midを巻き込まずにサブだけ整えられます。',
+      bandBass: 'ベース', descBass: 'ベース/808の胴体部分(サブの基音でもローミッドのこもりでもない)、パンチ感と重さはここにあります。',
+      bandLowMid: 'ローミッド', descLowMid: '典型的な箱鳴り/こもりゾーン。ここだけ削ればSubやBassを触らずにこもりだけ整理できます、この帯域だけ詰まって感じる時は、広いLow Shelfカットの代わりにこれを使ってください。',
+      bandHiMid: 'ハイミッド', descHiMid: 'ボーカル/リードの存在感と子音の明瞭さはここにあります、Presence(6kHz)と分離されているので、シビランスを増やさずに明瞭度だけ上げられます。',
+      bandPresence: 'プレゼンス', descPresence: 'シンバルの輝き、ハイハットのエッジ、シビランス(サ行の音)。Air(High Shelf)と分離されているので、一番上の帯域を触らずにこの荒さのゾーンだけを抑えたり持ち上げたりできます。',
       bandCompressor: 'Compressor', bandLoudness: 'Loudness / Limiter', bandDeharsher: 'De-Harsher',
       bandBassProtect: 'ベースプロテクト',
       descBassProtect: 'クロスオーバー以下の低域をメインコンプレッサーの前で完全に分離し、独自のThreshold/Ratio/Attack/Releaseで別々に圧縮します。ハイハットやチャント、シンバルなど他の音がメインコンプレッサーを強く押しても、低域(ベース/808)のサステインが巻き込まれて途切れるのを防ぎます — 2つの帯域が同じゲインリダクションを奪い合わなくなります。',
@@ -4984,10 +5975,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       descWidth: '信号をmid（中央）とside（左右差分）に分割し、sideの量を調整します。100%未満でモノラルに近づき、100%を超えるとステレオイメージが広がります。モノラル音源はside成分がないため影響を受けません。',
       eqCurveHint: 'スペクトラム上の3つの点をドラッグすると、Low Shelf / Mid Peak / High Shelfを直接調整できます — 下のMixing Deskの数値も連動して動きます。',
       gonioHint: 'ライブゴニオメーターです — 形が横に広がるほどステレオの幅が広いことを意味し、まっすぐな縦線はモノラルを意味します。',
+      gonioSideTitle: 'Stereo Width', gonioHintCard: 'ライブゴニオメーターは上の波形の横に固定表示されます — このカードを別ウィンドウに分離しても動作し続けます。',
       monTruePeak: 'Stereo True Peak', monLiveLufs: 'Live LUFS (momentary)',
       monAvgLufs: '平均LUFS（今回の再生）', monCorrelation: 'Correlation', monBalance: 'Balance (L / R)',
       monLiveSpectrum: 'ライブスペクトラム', monLra: 'ラウドネスレンジ (LRA)', monLraNote: '曲全体でラウドネスがどれだけ変動するかを示します。非常に低い(目安3 LU未満)場合、強い圧縮/リミッティングで平坦に潰されている可能性があります。',
       btnPopoutMonitor: '⇱ 別ウィンドウ',
+      btnPopoutEq: '⇱ EQを別ウィンドウへ', btnPopoutDesk: '⇱ ダイナミクスを別ウィンドウへ', btnShowAllPopouts: '⇈ すべて表示',
+      chipEq: 'EQ', chipDesk: 'ダイナミクス', chipMonitor: 'Live Monitor',
+      btnGlossary: '❓ 用語集',
       monPoppedOutNote: '別ウィンドウに切り離されました — そのウィンドウを閉じるとここに戻ります。',
       waveLabelSpectrum: 'スペクトラム（トラック全体の平均）',
       waveLabelOriginal: 'オリジナル波形', waveLabelMaster: 'マスター波形',
@@ -5080,6 +6075,13 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       panelLiveMonitor: 'Live Monitor',
       panelMixingDesk: 'Mixing Desk',
       panelEditHistory: '编辑历史',
+      btnLogDownload: '📜 下载日志', logNote: '日志(与Undo不同)绝不会覆盖任何内容，它按实际发生的顺序完整记录每一次编辑、预设选择、撤销和跳转，包括之后被撤销的部分。可作为证明最终成果中有多少人工主导工作的溯源记录。',
+      btnDlBundle: '📦 连同设置+日志一起下载(选择文件夹)', dlBundleNote: '输入名字后只需选择一个文件夹 — 音频文件、设置文件和日志文件都会用这个名字一起保存在那里。需要Chrome或Edge浏览器。', dlBundleSaved: '✓ 已保存3个文件',
+      dlBundleFolderHint: '⚠ 浏览器出于安全考虑，不允许直接选择"下载"、"文档"、"桌面"或磁盘根目录 — 请在里面新建或选择一个子文件夹。',
+      bundleModalTitle: '连同设置+日志一起保存', bundleModalSub: '选择文件夹和名字，音频文件、设置文件和日志文件都会一起保存在那里。',
+      bundleModalSubFileProtocol: '输入名字后点击保存 — 由于此页面是以本地文件方式打开的，音频、设置和日志文件会打包成一个.zip，只需一次原生保存对话框即可保存。',
+      bundleModalFolderLabel: '文件夹', bundleModalChooseFolder: '📁 选择文件夹…', bundleModalNoFolder: '还没有选择文件夹', bundleModalNameLabel: '文件名',
+      bundleModalCancel: '取消', bundleModalSave: '💾 保存',
       panelOutputSummary: '母带处理结果摘要',
       panelLoudnessTarget: 'Loudness Target',
       panelDownload: '下载',
@@ -5096,8 +6098,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       runMastering: '🎚 执行母带处理', rendering: '渲染中…',
       finalMastering: '🎯 最终母带处理', calibrating: '校准中…',
       previewRemoved: '🎧 试听被移除的部分', renderingPreview: '正在渲染预览…',
+      stopPreview: '⏹ 停止试听', deEnableLabel: '开启, 应用De-Harsher',
       undoBtn: '↩ 撤销一步',
       bandLowShelf: 'Low Shelf', bandMidPeak: 'Mid Peak', bandHighShelf: 'High Shelf',
+      bandSub: 'Sub 次低音', descSub: '只窄幅处理次低音基频本身。Low Shelf会把拐点以下全部一起削减，而这个只触及60Hz本身，因此可以单独塑造次低音而不会连带影响Bass/Low-Mid。',
+      bandBass: 'Bass 低音', descBass: '低音/808的主体部分(既非次低音基频，也非低中频浑浊感)，冲击力和重量感来自这里。',
+      bandLowMid: 'Low-Mid 低中频', descLowMid: '典型的发闷/浑浊区域。只削减这里可以清理浑浊感而不影响Sub或Bass，当只有这个范围感觉拥挤时，用这个而不是大范围的Low Shelf削减。',
+      bandHiMid: 'Hi-Mid 中高频', descHiMid: '人声/主奏的临场感和辅音清晰度来自这里，与Presence(6kHz)分开，因此可以提升清晰度而不会同时提升齿音。',
+      bandPresence: 'Presence 临场感', descPresence: '镲片光泽、踩镲边缘、齿音(丝音)。与Air(High Shelf)分开，因此可以单独抑制或提升这个刺耳区域，而不影响最顶端的频段。',
       bandCompressor: 'Compressor', bandLoudness: 'Loudness / Limiter', bandDeharsher: 'De-Harsher',
       bandBassProtect: '低音保护',
       descBassProtect: '在主压缩器之前，将分频点以下的所有低频完全分离出来，用独立的Threshold/Ratio/Attack/Release单独压缩。防止其他部分(镲片、和声、镲)的响亮打击音在主压缩器的增益衰减中连带压垮低音/808的延音 — 两个频段不再争夺同一份增益衰减。',
@@ -5138,10 +6146,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       descWidth: '将信号拆分为 mid（中央）和 side（立体声差异）两部分，并调整 side 的量。低于 100% 会趋向单声道；高于 100% 会拓宽立体声图像。单声道音源本身没有 side 成分，因此不受影响。',
       eqCurveHint: '拖动频谱上的三个点即可直接调整 Low Shelf / Mid Peak / High Shelf——下方 Mixing Desk 的数值会同步变化。',
       gonioHint: '实时相位表（Goniometer）——形状越偏向水平，立体声宽度越宽；一条竖直的直线代表单声道。',
+      gonioSideTitle: 'Stereo Width', gonioHintCard: '实时相位表固定显示在上方波形旁边 — 即使把这张卡片弹出到单独窗口，它也能继续正常工作。',
       monTruePeak: 'Stereo True Peak', monLiveLufs: 'Live LUFS (momentary)',
       monAvgLufs: '平均 LUFS（本次播放）', monCorrelation: 'Correlation', monBalance: 'Balance (L / R)',
       monLiveSpectrum: '实时频谱', monLra: '响度范围 (LRA)', monLraNote: '表示整首曲目响度的变化幅度。数值非常低(大致低于3 LU)通常意味着被强力压缩/限幅压得很平。',
       btnPopoutMonitor: '⇱ 弹出窗口',
+      btnPopoutEq: '⇱ 分离EQ窗口', btnPopoutDesk: '⇱ 分离动态处理窗口', btnShowAllPopouts: '⇈ 全部显示',
+      chipEq: 'EQ', chipDesk: '动态处理', chipMonitor: 'Live Monitor',
+      btnGlossary: '❓ 术语表',
       monPoppedOutNote: '已分离到单独的窗口 — 关闭该窗口即可返回此处。',
       waveLabelSpectrum: '频谱（全曲平均）',
       waveLabelOriginal: '原始波形', waveLabelMaster: '母带波形',
