@@ -466,9 +466,22 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   }
   #waveCanvasB{ display:block; width:100%; height:100%; cursor:pointer; }
   #waveCanvasA{ display:block; width:100%; height:100%; cursor:pointer; }
+  #envCanvas{ cursor:pointer; }
   .wave-playhead{
     position:absolute; top:0; bottom:0; width:2px; background: var(--warn);
     left:0; pointer-events:none; box-shadow: 0 0 6px var(--warn);
+  }
+  .split-marker{
+    position:absolute; top:0; bottom:0; width:14px; margin-left:-7px; left:50%;
+    cursor:ew-resize; z-index:5;
+  }
+  .split-marker::before{
+    content:''; position:absolute; top:0; bottom:0; left:6px; width:2px;
+    background:#c792ea; box-shadow:0 0 6px #c792ea;
+  }
+  .split-marker::after{
+    content:''; position:absolute; top:0; left:2px; width:10px; height:10px; border-radius:50%;
+    background:#c792ea; box-shadow:0 0 6px #c792ea;
   }
   .transport{ display:flex; align-items:center; gap: 14px; margin-top: 16px; }
   .playbtn{
@@ -1083,6 +1096,38 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       <div class="preset-desc" id="presetDesc">Pick a direction to set the EQ and compressor below in one go — you can still fine-tune every slider or number afterward.</div>
     </div>
 
+    <div class="panel" id="splitPanel">
+      <div class="panel-title" data-i18n="panelSplit">Section Split (vibe changes mid-track)</div>
+      <div class="band-desc" data-i18n="descSplit">Turn this on to give the part of the track after your chosen timestamp its own fully independent EQ / Compressor / Bass Protect / Saturation / De-Harsher / Width / Vibe settings, smoothly crossfaded in. Leave it off and the tool behaves exactly as before — one setting for the whole track.</div>
+      <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim); margin:10px 0;">
+        <input type="checkbox" id="splitEnableToggle" style="width:16px;height:16px;">
+        <span data-i18n="splitEnableLabel">Split into two sections</span>
+      </label>
+
+      <div id="splitControlsWrap" class="hidden">
+        <div class="fmt-row" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+          <div>
+            <label data-i18n="splitTimeLabel">Split at (seconds)</label>
+            <input type="text" id="splitTimeInput" class="fmt-select" inputmode="numeric" placeholder="00:00" value="00:00">
+          </div>
+          <div>
+            <label data-i18n="splitCrossfadeLabel">Crossfade length (seconds)</label>
+            <input type="number" id="splitCrossfadeInput" class="fmt-select" min="0.5" max="20" step="0.5" value="4">
+          </div>
+        </div>
+
+        <div class="fmt-tabs" id="sectionTabs">
+          <div class="fmt-tab active" id="sectionTab1" data-i18n="sectionTab1">Section 1 (Start)</div>
+          <div class="fmt-tab" id="sectionTab2" data-i18n="sectionTab2">Section 2 (After split)</div>
+        </div>
+
+        <button class="dl-btn" id="splitCopyBtn" style="width:auto; padding:9px 16px;" data-i18n="btnCopySection">📋 Copy Section 1 → Section 2</button>
+        <div class="note" style="margin-top:6px;" data-i18n="splitCopyHint">Overwrites Section 2 with whatever's currently set in Section 1 — a quick way to give Section 2 a starting point instead of blank EQ/Compressor settings. You can still tweak Section 2 afterward.</div>
+        <div class="note" style="margin-top:10px;" id="splitStatusText"></div>
+        <div class="note" style="margin-top:6px;" data-i18n="splitDragHint">Tip: drag the vertical marker on the Original/Master waveforms below to set the split point.</div>
+      </div>
+    </div>
+
     <div class="panel">
       <div class="panel-title" data-i18n="panelEditHistory">Edit History</div>
       <div class="history-controls">
@@ -1139,6 +1184,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
             <div class="wave-wrap" id="waveWrapA">
               <canvas id="waveCanvasA"></canvas>
               <div class="wave-playhead" id="wavePlayheadA"></div>
+              <div class="split-marker hidden" id="splitMarkerA"></div>
             </div>
           </div>
 
@@ -1147,6 +1193,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
             <div class="wave-wrap" id="waveWrapB">
               <canvas id="waveCanvasB"></canvas>
               <div class="wave-playhead" id="wavePlayheadB"></div>
+              <div class="split-marker hidden" id="splitMarkerB"></div>
               <div class="wave-empty" id="waveEmptyB">Click Run Mastering to see the result waveform here</div>
             </div>
           </div>
@@ -1525,8 +1572,10 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       </div>
       <div style="position:relative; height:220px; background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:8px;">
         <canvas id="envCanvas" style="width:100%; height:100%; display:block;"></canvas>
+        <div class="wave-playhead hidden" id="envPlayhead"></div>
         <div class="wave-empty" id="envEmpty" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:12.5px; text-align:center; padding:16px;" data-i18n="envEmptyHint">Pick a band/window and click Render Envelope. Each curve is normalized to its own peak — you're comparing decay SHAPE, not loudness.</div>
       </div>
+      <div class="note" style="margin-top:8px;" data-i18n="envClickHint">🖱 Click anywhere on the chart to hear the rendered Master starting from that point — handy for checking what a flagged (red) stretch actually sounds like.</div>
       <div id="envStats" style="margin-top:10px; font-family:var(--mono); font-size:12px; color:var(--text-dim);"></div>
     </div>
 
@@ -1659,6 +1708,33 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   const fileNameLabel = document.getElementById('fileNameLabel');
 
   let audioCtx, audioBuffer, sourceNode, isPlaying = false, startedAt = 0, pausedAt = 0;
+  // independent one-off playback used by the Envelope Viewer's "click the
+  // chart to hear that part of the Master" feature — plays masteredBuffer
+  // directly (not through the main transport's live graph), so it needs
+  // its own stop plumbing kept in sync with the main transport below.
+  let envPreviewSource = null;
+  let envPreviewStartedAt = 0, envPreviewWindowStart = 0, envPreviewWindowDur = 1;
+  function stopEnvPreview(){
+    if(!envPreviewSource) return;
+    envPreviewSource.onended = null; // same stale-onended race as the main waveform seek — clear before stop
+    try{ envPreviewSource.stop(); }catch(e){}
+    envPreviewSource.disconnect();
+    envPreviewSource = null;
+    updateEnvPlayhead(); // reset the marker immediately rather than waiting for the next RAF tick
+  }
+  // moves (or hides, once stopped) the vertical playhead over the Envelope
+  // Viewer chart — called every frame from drawMeterLoop() below, same as
+  // the main waveform playheads, but tracked independently since this
+  // preview has nothing to do with the main transport's isPlaying/startedAt.
+  function updateEnvPlayhead(){
+    const el = document.getElementById('envPlayhead');
+    if(!el) return;
+    if(!envPreviewSource){ el.classList.add('hidden'); el.style.left = '0%'; return; }
+    el.classList.remove('hidden');
+    const bufPos = audioCtx.currentTime - envPreviewStartedAt;
+    const pct = Math.min(100, Math.max(0, ((bufPos - envPreviewWindowStart) / envPreviewWindowDur) * 100));
+    el.style.left = pct + '%';
+  }
   let mode = 'A'; // A = dry, B = wet
 
   // nodes (built once ctx exists)
@@ -2430,6 +2506,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   }
   function pushHistory(label){
     if(restoringSnapshot || !audioBuffer) return;
+    if(splitEnabled && activeSection === 2) label = '[Section 2] ' + label;
     history = history.slice(0, historyIndex+1);
     const snap = snapshotParams();
     history.push({ label, time: new Date(), snap });
@@ -2727,6 +2804,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     });
     snap.bassEnable = document.getElementById('bassEnable').checked;
     snap.satEnable = document.getElementById('satEnable').checked;
+    snap.deEnable = document.getElementById('deEnable').checked;
     return snap;
   }
 
@@ -2739,21 +2817,77 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     });
     if(snap.bassEnable != null) document.getElementById('bassEnable').checked = !!snap.bassEnable;
     if(snap.satEnable != null) document.getElementById('satEnable').checked = !!snap.satEnable;
+    if(snap.deEnable != null) document.getElementById('deEnable').checked = !!snap.deEnable;
     restoringSnapshot = false;
     applyAllParams();
     invalidateMaster();
     clearTimeout(historyDebounceId);
     pushHistory('Loaded preset');
+
+    // Section Split data, if the file had any — older files (or a file
+    // saved with Split off) simply don't have these lines, so this block
+    // is a no-op for them beyond making sure any *currently* active split
+    // in the app gets cleared, since a loaded file should fully determine
+    // the resulting state rather than leaving stale split data behind.
+    if(snap.splitEnabled && snap.sectionA && snap.sectionB){
+      section1State = snap.sectionA;
+      section2State = snap.sectionB;
+      splitTimeSec = snap.splitTimeSec != null ? snap.splitTimeSec : (audioBuffer.duration/2);
+      crossfadeSec = snap.splitCrossfadeSec != null ? snap.splitCrossfadeSec : 4;
+      splitEnabled = true;
+      activeSection = 1;
+      document.getElementById('splitEnableToggle').checked = true;
+      document.getElementById('splitControlsWrap').classList.remove('hidden');
+      document.getElementById('splitTimeInput').value = fmtTime(splitTimeSec);
+      document.getElementById('splitCrossfadeInput').value = crossfadeSec;
+      updateSectionTabUI();
+      applySectionState(section1State);
+      updateSplitMarkerPositions();
+      updateSplitStatusText();
+      logEvent('Edit', `Split: loaded from file at ${fmtTime(splitTimeSec)} (crossfade ${crossfadeSec}s)`);
+    } else {
+      resetSplitState();
+    }
   }
 
   // ---- Copy all current Mixing Desk settings as plain text — handy for
-  // pasting into a chat/notes instead of screenshotting every slider. ----
+  // pasting into a chat/notes instead of screenshotting every slider. When
+  // Section Split is on, appends a second block with Section A's and
+  // Section B's full settings (prefixed lines) plus the split point/
+  // crossfade — parseSettingsText() below ignores that block entirely on
+  // older files/when Split is off, so the format stays backward compatible
+  // in both directions. ----
+  function sectionSnapshotToLines(prefix, snap){
+    snap = snap || {};
+    const lines = SETTINGS_SLIDER_KEYS.map(k => `${prefix} — ${SETTINGS_LABELS[k]}: ${snap[k]}`);
+    lines.splice(18, 0, `${prefix} — Bass Protect Enable: ${snap.bassEnable ? 'On' : 'Off'}`);
+    lines.splice(12, 0, `${prefix} — Saturation Enable: ${snap.satEnable ? 'On' : 'Off'}`);
+    lines.push(`${prefix} — De-Harsher Enable: ${snap.deEnable ? 'On' : 'Off'}`);
+    return lines;
+  }
+  function getSplitSettingsText(){
+    const lines = [];
+    lines.push('Split Enabled: On');
+    lines.push(`Split Time (s): ${splitTimeSec}`);
+    lines.push(`Split Crossfade (s): ${crossfadeSec}`);
+    lines.push('');
+    lines.push(...sectionSnapshotToLines('Section A', section1State));
+    lines.push('');
+    lines.push(...sectionSnapshotToLines('Section B', section2State));
+    return lines.join('\n');
+  }
   function getSettingsText(){
     const snap = getSettingsSnapshot();
     const lines = SETTINGS_SLIDER_KEYS.map(k => `${SETTINGS_LABELS[k]}: ${snap[k]}`);
     lines.splice(18, 0, `Bass Protect Enable: ${snap.bassEnable ? 'On' : 'Off'}`);
     lines.splice(12, 0, `Saturation Enable: ${snap.satEnable ? 'On' : 'Off'}`);
-    return 'AI Mastering Tool — Mixing Desk settings\n' + lines.join('\n');
+    lines.push(`De-Harsher Enable: ${snap.deEnable ? 'On' : 'Off'}`);
+    let out = 'AI Mastering Tool — Mixing Desk settings\n' + lines.join('\n');
+    if(splitEnabled && splitTimeSec != null){
+      syncActiveSectionState();
+      out += '\n\n' + getSplitSettingsText();
+    }
+    return out;
   }
 
   // ---- Edit Log export: the append-only record built up in editLog[] above,
@@ -2871,25 +3005,32 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
 
   function parseSettingsText(text){
     const snap = {};
+    const sectionA = {}, sectionB = {};
     text.split('\n').forEach(line=>{
       const idx = line.indexOf(':');
       if(idx === -1) return;
       const label = line.slice(0, idx).trim();
       const valueStr = line.slice(idx+1).trim();
-      if(label === 'Bass Protect Enable'){
-        snap.bassEnable = /^on$/i.test(valueStr);
-        return;
-      }
-      if(label === 'Saturation Enable'){
-        snap.satEnable = /^on$/i.test(valueStr);
-        return;
-      }
-      const key = LABEL_TO_SETTINGS_KEY[label];
+
+      if(label === 'Split Enabled'){ snap.splitEnabled = /^on$/i.test(valueStr); return; }
+      if(label === 'Split Time (s)'){ const n = parseFloat(valueStr); if(!isNaN(n)) snap.splitTimeSec = n; return; }
+      if(label === 'Split Crossfade (s)'){ const n = parseFloat(valueStr); if(!isNaN(n)) snap.splitCrossfadeSec = n; return; }
+
+      let target = snap, rawLabel = label;
+      if(label.startsWith('Section A — ')){ target = sectionA; rawLabel = label.slice('Section A — '.length); }
+      else if(label.startsWith('Section B — ')){ target = sectionB; rawLabel = label.slice('Section B — '.length); }
+
+      if(rawLabel === 'Bass Protect Enable'){ target.bassEnable = /^on$/i.test(valueStr); return; }
+      if(rawLabel === 'Saturation Enable'){ target.satEnable = /^on$/i.test(valueStr); return; }
+      if(rawLabel === 'De-Harsher Enable'){ target.deEnable = /^on$/i.test(valueStr); return; }
+      const key = LABEL_TO_SETTINGS_KEY[rawLabel];
       if(key){
         const num = parseFloat(valueStr);
-        if(!isNaN(num)) snap[key] = num;
+        if(!isNaN(num)) target[key] = num;
       }
     });
+    if(Object.keys(sectionA).length) snap.sectionA = sectionA;
+    if(Object.keys(sectionB).length) snap.sectionB = sectionB;
     return snap;
   }
 
@@ -3174,6 +3315,86 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   }
   [...GENRE_LAYER_IDS, ...VIBE_LAYER_IDS].forEach(setupLayerChipRow);
 
+  // ---- Section Split: lets the vibe genuinely change partway through a
+  // track — two full independent Mixing Desk states (EQ/Comp/Bass
+  // Protect/Saturation/De-Harsher/Width/Vibe tags), crossfaded at a chosen
+  // timestamp. Section 1/2 deliberately reuse the SAME sliders/cards/GR
+  // meters/curve widgets — switching sections just swaps a snapshot onto
+  // the existing controls (same restoringSnapshot batch-apply idiom as
+  // Presets/Vibe above), so nothing needs to be duplicated in the DOM or in
+  // the live audio graph. When splitEnabled is false, everything behaves
+  // exactly as before this feature existed. ----
+  let splitEnabled = false;
+  let splitTimeSec = null;   // seconds into the track; set to duration/2 the first time Split is turned on
+  let crossfadeSec = 4;      // total ramp length in seconds, centered on splitTimeSec
+  let activeSection = 1;     // 1 or 2 — which section is currently loaded onto the sliders
+  let section1State = null, section2State = null;
+
+  function captureSectionState(){
+    const snap = getSettingsSnapshot(); // 30 sliders + bassEnable + satEnable
+    snap.deEnable = document.getElementById('deEnable').checked;
+    snap.presetValue = document.getElementById('presetSelect').value;
+    snap.vibeTags = collectLayerValues(VIBE_LAYER_IDS);
+    snap.vibeBase = vibeBaseSnapshot ? {...vibeBaseSnapshot} : null;
+    return snap;
+  }
+
+  function applySectionState(snap){
+    if(!snap) return;
+    restoringSnapshot = true;
+    SETTINGS_SLIDER_KEYS.forEach(k=>{
+      if(snap[k] == null) return;
+      const s = document.getElementById(k+'Slider');
+      if(s){ s.value = snap[k]; s.dispatchEvent(new Event('input')); }
+    });
+    document.getElementById('bassEnable').checked = !!snap.bassEnable;
+    document.getElementById('satEnable').checked = !!snap.satEnable;
+    document.getElementById('deEnable').checked = !!snap.deEnable;
+    document.getElementById('presetSelect').value = snap.presetValue || '';
+    document.getElementById('presetDesc').textContent = currentPresetDescText();
+    VIBE_LAYER_IDS.forEach(id=>{
+      document.querySelectorAll('#'+id+' .layer-chip').forEach(chip=>{
+        chip.classList.toggle('active', (snap.vibeTags||[]).includes(chip.dataset.value));
+      });
+      const atMax = document.querySelectorAll('#'+id+' .layer-chip.active').length >= LAYER_MAX;
+      document.querySelectorAll('#'+id+' .layer-chip').forEach(c=>{
+        c.disabled = atMax && !c.classList.contains('active');
+      });
+    });
+    vibeBaseSnapshot = snap.vibeBase ? {...snap.vibeBase} : null;
+    restoringSnapshot = false;
+    applyAllParams();
+    updateGenreCard();
+    invalidateMaster();
+  }
+
+  // saves whatever's currently on the sliders into the section it belongs
+  // to — call this before reading section1State/section2State for anything
+  // (switching tabs, rendering, saving to file) so the "live" section is
+  // never stale.
+  function syncActiveSectionState(){
+    const snap = captureSectionState();
+    if(activeSection === 1) section1State = snap; else section2State = snap;
+    return snap;
+  }
+
+  // called on both "remove track" (resetAll) and "load a new track"
+  // (loadFile) — a fresh track's duration/settings have nothing to do with
+  // whatever split point was picked for the previous one.
+  function resetSplitState(){
+    splitEnabled = false; splitTimeSec = null; activeSection = 1;
+    section1State = null; section2State = null;
+    const toggle = document.getElementById('splitEnableToggle');
+    if(toggle) toggle.checked = false;
+    const wrap = document.getElementById('splitControlsWrap');
+    if(wrap) wrap.classList.add('hidden');
+    const mA = document.getElementById('splitMarkerA'), mB = document.getElementById('splitMarkerB');
+    if(mA) mA.classList.add('hidden');
+    if(mB) mB.classList.add('hidden');
+    const statusEl = document.getElementById('splitStatusText');
+    if(statusEl) statusEl.textContent = '';
+  }
+
   function updateGenreCard(){
     const el = document.getElementById('anGenre');
     const parts = [];
@@ -3218,6 +3439,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     clearGoniometer();
     resetSpectrumPeaks();
     vibeBaseSnapshot = null;
+    resetSplitState();
     document.getElementById('calibrateWarning').classList.add('hidden');
     document.getElementById('balFill').style.width = '0%';
     [...GENRE_LAYER_IDS, ...VIBE_LAYER_IDS].forEach(id=>{
@@ -3284,6 +3506,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     document.getElementById('suggestionList').innerHTML = '<div class="history-empty">Run Mastering to get concrete suggestions for reaching a streaming-safe loudness, or pushing louder without breaking balance.</div>';
     lastMeasuredLufs = null;
     history = []; historyIndex = -1;
+    resetSplitState();
     pushHistory('Initial upload');
   }
 
@@ -3373,6 +3596,150 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const m = (s/60)|0, ss = s%60;
     return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
   }
+  // accepts "mm:ss" (matches fmtTime's own output) or a plain number of
+  // seconds, so typing "1:30" or just "90" both work.
+  function parseTimeInput(str){
+    str = (str || '').trim();
+    if(str.includes(':')){
+      const parts = str.split(':');
+      const m = parseFloat(parts[0]), s = parseFloat(parts[1]);
+      if(isNaN(m) || isNaN(s)) return null;
+      return m*60 + s;
+    }
+    const n = parseFloat(str);
+    return isNaN(n) ? null : n;
+  }
+
+  // ---- Section Split UI: toggle, time/crossfade inputs, Section 1/2 tabs,
+  // and a draggable marker on both waveforms. All of this only decides
+  // *which snapshot* is loaded onto the existing sliders (see
+  // captureSectionState/applySectionState above) — it never creates new
+  // controls, so every card, GR meter, and curve widget keeps working
+  // unmodified for whichever section is currently active. ----
+  const splitEnableToggle = document.getElementById('splitEnableToggle');
+  const splitControlsWrap = document.getElementById('splitControlsWrap');
+  const splitTimeInput = document.getElementById('splitTimeInput');
+  const splitCrossfadeInput = document.getElementById('splitCrossfadeInput');
+  const splitMarkerA = document.getElementById('splitMarkerA');
+  const splitMarkerB = document.getElementById('splitMarkerB');
+  const sectionTab1 = document.getElementById('sectionTab1');
+  const sectionTab2 = document.getElementById('sectionTab2');
+
+  function updateSplitMarkerPositions(){
+    const show = splitEnabled && audioBuffer && splitTimeSec != null;
+    splitMarkerA.classList.toggle('hidden', !show);
+    splitMarkerB.classList.toggle('hidden', !show);
+    if(!show) return;
+    const pct = Math.min(100, Math.max(0, (splitTimeSec / audioBuffer.duration) * 100));
+    splitMarkerA.style.left = pct + '%';
+    splitMarkerB.style.left = pct + '%';
+  }
+
+  function updateSplitStatusText(){
+    const el = document.getElementById('splitStatusText');
+    if(!el) return;
+    if(!splitEnabled || splitTimeSec == null){ el.textContent = ''; return; }
+    const t = T[currentLang];
+    el.textContent = (t && t.splitStatusText)
+      ? t.splitStatusText(fmtTime(splitTimeSec), crossfadeSec)
+      : `Split at ${fmtTime(splitTimeSec)}, crossfade ${crossfadeSec}s`;
+  }
+
+  function updateSectionTabUI(){
+    sectionTab1.classList.toggle('active', activeSection === 1);
+    sectionTab2.classList.toggle('active', activeSection === 2);
+  }
+
+  function setSplitTime(sec){
+    if(!audioBuffer) return;
+    splitTimeSec = Math.min(audioBuffer.duration, Math.max(0, sec));
+    updateSplitMarkerPositions();
+    if(document.activeElement !== splitTimeInput) splitTimeInput.value = fmtTime(splitTimeSec);
+    invalidateMaster();
+    updateSplitStatusText();
+  }
+
+  function switchToSection(n){
+    if(!splitEnabled || n === activeSection) return;
+    syncActiveSectionState();
+    activeSection = n;
+    if(n === 1){
+      if(!section1State) section1State = captureSectionState();
+      applySectionState(section1State);
+    } else {
+      if(!section2State) section2State = {...section1State};
+      applySectionState(section2State);
+    }
+    updateSectionTabUI();
+  }
+  sectionTab1.addEventListener('click', ()=> switchToSection(1));
+  sectionTab2.addEventListener('click', ()=> switchToSection(2));
+
+  splitEnableToggle.addEventListener('change', (e)=>{
+    if(!audioBuffer){ e.target.checked = false; return; }
+    splitEnabled = e.target.checked;
+    splitControlsWrap.classList.toggle('hidden', !splitEnabled);
+    if(splitEnabled){
+      if(splitTimeSec == null) splitTimeSec = audioBuffer.duration/2;
+      if(!section1State) section1State = captureSectionState();
+      if(!section2State) section2State = {...section1State};
+      activeSection = 1;
+      updateSectionTabUI();
+      splitTimeInput.value = fmtTime(splitTimeSec);
+      splitCrossfadeInput.value = crossfadeSec;
+      logEvent('Edit', `Split: enabled at ${fmtTime(splitTimeSec)} (crossfade ${crossfadeSec}s)`);
+    } else {
+      if(activeSection === 2){ activeSection = 1; applySectionState(section1State); updateSectionTabUI(); }
+      logEvent('Edit', 'Split: disabled');
+    }
+    updateSplitMarkerPositions();
+    updateSplitStatusText();
+    invalidateMaster();
+  });
+
+  splitTimeInput.addEventListener('change', ()=>{
+    if(!splitEnabled) return;
+    const parsed = parseTimeInput(splitTimeInput.value);
+    setSplitTime(parsed != null ? parsed : splitTimeSec);
+    splitTimeInput.value = fmtTime(splitTimeSec); // normalize whatever they typed back to mm:ss
+  });
+  splitCrossfadeInput.addEventListener('input', (e)=>{
+    crossfadeSec = Math.max(0.5, parseFloat(e.target.value)||4);
+    invalidateMaster();
+    updateSplitStatusText();
+  });
+  document.getElementById('splitCopyBtn').addEventListener('click', ()=>{
+    if(!splitEnabled) return;
+    syncActiveSectionState();
+    section2State = {...section1State};
+    if(activeSection === 2) applySectionState(section2State);
+    clearTimeout(historyDebounceId);
+    logEvent('Edit', 'Split: copied Section 1 → Section 2');
+    updateSplitStatusText();
+  });
+
+  function bindSplitMarkerDrag(marker, wrap){
+    marker.addEventListener('mousedown', (e)=>{
+      if(!splitEnabled || !audioBuffer) return;
+      e.stopPropagation();
+      e.preventDefault();
+      const onMove = (ev)=>{
+        const rect = wrap.getBoundingClientRect();
+        const ratio = (ev.clientX - rect.left) / rect.width;
+        setSplitTime(ratio * audioBuffer.duration);
+      };
+      const onUp = ()=>{
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        clearTimeout(historyDebounceId);
+        logEvent('Edit', `Split: moved to ${fmtTime(splitTimeSec)}`);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+  bindSplitMarkerDrag(splitMarkerA, waveWrapA);
+  bindSplitMarkerDrag(splitMarkerB, waveWrapB);
 
   // ---- transport ----
   const playBtn = document.getElementById('playBtn');
@@ -3412,7 +3779,72 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     }
   });
 
+  // ---- Section Split, live audition only: schedules the same kind of
+  // ramp renderMaster() bakes into an export, but on the persistent live
+  // graph's own nodes (comp/bassComp/deComp/EQ filters/etc.), relative to
+  // audioCtx time instead of an offline buffer's time-zero. This is a
+  // best-effort preview so you can hear the transition without exporting —
+  // it is NOT what gets exported (renderMaster's own scheduling is what
+  // actually produces the downloaded file, and is unaffected by this).
+  // Known limitation: dragging a slider while this is mid-ramp writes an
+  // instant value on top of it (same as any live slider edit always has),
+  // which can cause a small audible jump — acceptable for a live preview,
+  // documented rather than engineered around. ----
+  function scheduleLiveSplitAutomation(offset, mySrc){
+    if(!splitEnabled || splitTimeSec == null || !section1State || !section2State) return;
+    syncActiveSectionState();
+    const e1 = computeEffectiveParams(section1State);
+    const e2 = computeEffectiveParams(section2State);
+    const now = audioCtx.currentTime;
+    const rampStartBuf = Math.max(0, splitTimeSec - crossfadeSec/2);
+    const rampEndBuf = splitTimeSec + crossfadeSec/2;
+    const toCtxTime = (bufT) => now + (bufT - offset);
+
+    function schedule(param, key, exp){
+      const v1 = e1[key], v2 = e2[key];
+      param.cancelScheduledValues(now);
+      if(v1 === v2){ param.setValueAtTime(v1, now); return; }
+      if(rampEndBuf <= offset){ param.setValueAtTime(v2, now); return; } // transition already fully in the past
+      const rs = toCtxTime(rampStartBuf), re = Math.max(toCtxTime(rampEndBuf), now+0.01);
+      param.setValueAtTime(v1, now);
+      if(rs > now) param.setValueAtTime(v1, rs);
+      if(exp && v1>0 && v2>0) param.exponentialRampToValueAtTime(v2, re);
+      else param.linearRampToValueAtTime(v2, re);
+    }
+
+    schedule(lowShelf.frequency, 'lowFreq', true); schedule(lowShelf.gain, 'lowGain');
+    schedule(eqSub.gain, 'subGain'); schedule(eqBass.gain, 'bassGain'); schedule(eqLowMid.gain, 'lowmidGain');
+    schedule(midPeak.frequency, 'midFreq', true); schedule(midPeak.gain, 'midGain'); schedule(midPeak.Q, 'midQ');
+    schedule(eqHiMid.gain, 'himidGain'); schedule(eqPresence.gain, 'presenceGain');
+    schedule(highShelf.frequency, 'highFreq', true); schedule(highShelf.gain, 'highGain');
+    schedule(deHp.frequency, 'deFreq', true); schedule(deLp.frequency, 'deFreq', true);
+    schedule(deComp.threshold, 'deThresh'); schedule(deComp.ratio, 'deRatio');
+    schedule(comp.threshold, 'thresh'); schedule(comp.ratio, 'ratio');
+    schedule(comp.attack, 'attack'); schedule(comp.release, 'release');
+    schedule(bassLp.frequency, 'bassFreq', true); schedule(bassHp.frequency, 'bassFreq', true);
+    schedule(bassComp.threshold, 'bassThresh'); schedule(bassComp.ratio, 'bassRatio');
+    schedule(bassComp.attack, 'bassAttack'); schedule(bassComp.release, 'bassRelease');
+    schedule(makeup.gain, 'makeupGain');
+    schedule(limiter.threshold, 'ceil');
+    if(widthPos){ schedule(widthPos.gain, 'width'); schedule(widthNeg.gain, 'widthNeg'); }
+    schedule(satPreGain.gain, 'satPreGainVal'); schedule(satPostGain.gain, 'satPostGainVal');
+    schedule(satDryGain.gain, 'satMixInv'); schedule(satWetGain.gain, 'satMix');
+
+    // The WaveShaper curve itself can't be automated (see renderMaster's
+    // two-branch approach for the real, exported version) — for this
+    // preview-only pass it's swapped once, timed to land in the middle of
+    // the crossfade window, guarded so a stale timer from an old playback
+    // can't clobber a newer one.
+    satShaper.curve = buildSaturationCurve(e1.satAmount);
+    if(e1.satAmount !== e2.satAmount){
+      const doSwap = ()=>{ if(sourceNode === mySrc) satShaper.curve = buildSaturationCurve(e2.satAmount); };
+      if(splitTimeSec <= offset) doSwap();
+      else setTimeout(doSwap, Math.max(0, (toCtxTime(splitTimeSec) - now) * 1000));
+    }
+  }
+
   function startPlayback(offset=0){
+    stopEnvPreview(); // don't let the Envelope Viewer's preview keep playing underneath the main transport
     sourceNode = audioCtx.createBufferSource();
     sourceNode.buffer = audioBuffer;
     connectChain(sourceNode);
@@ -3424,6 +3856,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       monitorBlocks = []; lastMonitorPush = 0;
       peakHoldL = -100; peakHoldR = -100;
     }
+    scheduleLiveSplitAutomation(offset, sourceNode);
     sourceNode.onended = () => { if(isPlaying) stopPlayback(true); };
   }
 
@@ -3487,6 +3920,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     updateLiveMonitor();
     updateSpectrumPeaks();
     drawLiveSpectrum();
+    updateEnvPlayhead();
     mirrorToPopup();
   }
 
@@ -4040,65 +4474,163 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   }
 
   // ---- offline render + WAV export ----
+  // ---- reads one Mixing Desk param either from a stored section snapshot
+  // (source = a snapshot object) or live from the sliders (source = null,
+  // same as val()/checkbox reads always worked before Section Split
+  // existed). Used to build the "effective" param set for a render — with
+  // enable/bypass checkboxes already folded into threshold/ratio the same
+  // way applyAllParams()/the old renderMaster() always did it. ----
+  function readSourceVal(source, key){ return source ? source[key] : val(key); }
+  function readSourceChecked(source, key){
+    if(source) return !!source[key];
+    const el = document.getElementById(key);
+    return el ? el.checked : true;
+  }
+  function computeEffectiveParams(source){
+    const satAmount = readSourceVal(source,'satAmount')/100;
+    const satOn = readSourceChecked(source,'satEnable');
+    const satMix = satOn ? readSourceVal(source,'satMix')/100 : 0;
+    const deOn = readSourceChecked(source,'deEnable');
+    const bassOn = readSourceChecked(source,'bassEnable');
+    const width = readSourceVal(source,'width')/100;
+    const intensity = readSourceVal(source,'intensity')/100;
+    return {
+      lowFreq: readSourceVal(source,'lowFreq'), lowGain: readSourceVal(source,'lowGain'),
+      subGain: readSourceVal(source,'subGain'), bassGain: readSourceVal(source,'bassGain'), lowmidGain: readSourceVal(source,'lowmidGain'),
+      midFreq: readSourceVal(source,'midFreq'), midGain: readSourceVal(source,'midGain'), midQ: readSourceVal(source,'midQ'),
+      himidGain: readSourceVal(source,'himidGain'), presenceGain: readSourceVal(source,'presenceGain'),
+      highFreq: readSourceVal(source,'highFreq'), highGain: readSourceVal(source,'highGain'),
+      satAmount, satMix, satMixInv: 1 - satMix,
+      satPreGainVal: 1 + satAmount*2, satPostGainVal: 1/(1 + satAmount*0.6),
+      deFreq: readSourceVal(source,'deFreq'),
+      deThresh: deOn ? readSourceVal(source,'deSens') : 0, deRatio: deOn ? readSourceVal(source,'deAmount') : 1,
+      thresh: readSourceVal(source,'thresh'), ratio: readSourceVal(source,'ratio'),
+      attack: readSourceVal(source,'attack')/1000, release: readSourceVal(source,'release')/1000,
+      makeupGain: dbToGain(readSourceVal(source,'makeup')),
+      ceil: readSourceVal(source,'ceil'),
+      bassFreq: readSourceVal(source,'bassFreq'),
+      bassThresh: bassOn ? readSourceVal(source,'bassThresh') : 0, bassRatio: bassOn ? readSourceVal(source,'bassRatio') : 1,
+      bassAttack: readSourceVal(source,'bassAttack')/1000, bassRelease: readSourceVal(source,'bassRelease')/1000,
+      width, widthNeg: -width,
+      dryMix: 1-intensity, wetMix: intensity,
+    };
+  }
+
   async function renderMaster(){
     const offlineCtx = new OfflineAudioContext(audioBuffer.numberOfChannels, audioBuffer.length, audioBuffer.sampleRate);
     const src = offlineCtx.createBufferSource(); src.buffer = audioBuffer;
 
-    const intensity = val('intensity')/100;
-    const dry = offlineCtx.createGain(); dry.gain.value = 1-intensity;
-    const wet = offlineCtx.createGain(); wet.gain.value = intensity;
+    // ---- Section Split: when on, every param below ramps from Section 1's
+    // effective value to Section 2's across a crossfade window centered on
+    // splitTimeSec, instead of being set once from the live sliders. When
+    // off (the default), e1 is built straight from val()/the checkboxes —
+    // byte-for-byte the same values the old single-section code used, so
+    // behavior is unchanged. ----
+    const useSplit = splitEnabled && splitTimeSec != null && section1State && section2State;
+    if(useSplit) syncActiveSectionState();
+    const e1 = computeEffectiveParams(useSplit ? section1State : null);
+    const e2 = useSplit ? computeEffectiveParams(section2State) : null;
+    const rampStart = useSplit ? Math.max(0, splitTimeSec - crossfadeSec/2) : 0;
+    const rampEnd = useSplit ? Math.min(audioBuffer.duration, splitTimeSec + crossfadeSec/2) : 0;
+
+    function setParam(param, key, exp){
+      if(!useSplit){ param.value = e1[key]; return; }
+      const v1 = e1[key], v2 = e2[key];
+      param.setValueAtTime(v1, 0);
+      if(v1 !== v2){
+        param.setValueAtTime(v1, rampStart);
+        if(exp && v1>0 && v2>0) param.exponentialRampToValueAtTime(v2, rampEnd);
+        else param.linearRampToValueAtTime(v2, rampEnd);
+      }
+    }
+
+    const dry = offlineCtx.createGain(); setParam(dry.gain, 'dryMix');
+    const wet = offlineCtx.createGain(); setParam(wet.gain, 'wetMix');
 
     const lo = offlineCtx.createBiquadFilter(); lo.type='lowshelf';
-    lo.frequency.value = val('lowFreq'); lo.gain.value = val('lowGain');
-    const subO = offlineCtx.createBiquadFilter(); subO.type='peaking'; subO.frequency.value=60; subO.Q.value=1.0; subO.gain.value=val('subGain');
-    const bassO = offlineCtx.createBiquadFilter(); bassO.type='peaking'; bassO.frequency.value=150; bassO.Q.value=1.0; bassO.gain.value=val('bassGain');
-    const lowmidO = offlineCtx.createBiquadFilter(); lowmidO.type='peaking'; lowmidO.frequency.value=400; lowmidO.Q.value=1.0; lowmidO.gain.value=val('lowmidGain');
+    setParam(lo.frequency, 'lowFreq', true); setParam(lo.gain, 'lowGain');
+    const subO = offlineCtx.createBiquadFilter(); subO.type='peaking'; subO.frequency.value=60; subO.Q.value=1.0; setParam(subO.gain, 'subGain');
+    const bassO = offlineCtx.createBiquadFilter(); bassO.type='peaking'; bassO.frequency.value=150; bassO.Q.value=1.0; setParam(bassO.gain, 'bassGain');
+    const lowmidO = offlineCtx.createBiquadFilter(); lowmidO.type='peaking'; lowmidO.frequency.value=400; lowmidO.Q.value=1.0; setParam(lowmidO.gain, 'lowmidGain');
     const mid = offlineCtx.createBiquadFilter(); mid.type='peaking';
-    mid.frequency.value = val('midFreq'); mid.Q.value = val('midQ'); mid.gain.value = val('midGain');
-    const himidO = offlineCtx.createBiquadFilter(); himidO.type='peaking'; himidO.frequency.value=2500; himidO.Q.value=1.0; himidO.gain.value=val('himidGain');
-    const presenceO = offlineCtx.createBiquadFilter(); presenceO.type='peaking'; presenceO.frequency.value=6000; presenceO.Q.value=1.0; presenceO.gain.value=val('presenceGain');
+    setParam(mid.frequency, 'midFreq', true); setParam(mid.Q, 'midQ'); setParam(mid.gain, 'midGain');
+    const himidO = offlineCtx.createBiquadFilter(); himidO.type='peaking'; himidO.frequency.value=2500; himidO.Q.value=1.0; setParam(himidO.gain, 'himidGain');
+    const presenceO = offlineCtx.createBiquadFilter(); presenceO.type='peaking'; presenceO.frequency.value=6000; presenceO.Q.value=1.0; setParam(presenceO.gain, 'presenceGain');
     const hi = offlineCtx.createBiquadFilter(); hi.type='highshelf';
-    hi.frequency.value = val('highFreq'); hi.gain.value = val('highGain');
+    setParam(hi.frequency, 'highFreq', true); setParam(hi.gain, 'highGain');
 
-    const satAmountO = val('satAmount')/100;
-    const satOnO = document.getElementById('satEnable') ? document.getElementById('satEnable').checked : true;
-    const satMixO = satOnO ? val('satMix')/100 : 0;
-    const satPreO = offlineCtx.createGain(); satPreO.gain.value = 1 + satAmountO*2;
-    const satShaperO = offlineCtx.createWaveShaper();
-    satShaperO.oversample = '4x';
-    satShaperO.curve = buildSaturationCurve(satAmountO);
-    const satPostO = offlineCtx.createGain(); satPostO.gain.value = 1/(1 + satAmountO*0.6);
-    const satDryO = offlineCtx.createGain(); satDryO.gain.value = 1 - satMixO;
-    const satWetO = offlineCtx.createGain(); satWetO.gain.value = satMixO;
+    // Saturation is the one stage that can't use setParam: a WaveShaper's
+    // curve is a fixed buffer, not an AudioParam, so its *shape* can't be
+    // automated smoothly. Split mode instead runs two parallel branches —
+    // one built from Section 1's Drive, one from Section 2's — and
+    // crossfades between their wet outputs with ordinary (automatable) gain
+    // nodes, while the shared dry path still ramps its own mix normally.
+    const satDryO = offlineCtx.createGain();
     const satSumO = offlineCtx.createGain();
+    let hiOut; // node the rest of the chain connects from, after saturation
+    if(!useSplit){
+      const satPreO = offlineCtx.createGain(); satPreO.gain.value = 1 + e1.satAmount*2;
+      const satShaperO = offlineCtx.createWaveShaper();
+      satShaperO.oversample = '4x';
+      satShaperO.curve = buildSaturationCurve(e1.satAmount);
+      const satPostO = offlineCtx.createGain(); satPostO.gain.value = 1/(1 + e1.satAmount*0.6);
+      const satWetO = offlineCtx.createGain(); satWetO.gain.value = e1.satMix;
+      satDryO.gain.value = 1 - e1.satMix;
+      hi.connect(satDryO); hi.connect(satPreO);
+      satPreO.connect(satShaperO); satShaperO.connect(satPostO); satPostO.connect(satWetO);
+      satDryO.connect(satSumO); satWetO.connect(satSumO);
+      hiOut = satSumO;
+    } else {
+      const satPreA = offlineCtx.createGain(); satPreA.gain.value = 1 + e1.satAmount*2;
+      const satShaperA = offlineCtx.createWaveShaper(); satShaperA.oversample = '4x'; satShaperA.curve = buildSaturationCurve(e1.satAmount);
+      const satPostA = offlineCtx.createGain(); satPostA.gain.value = 1/(1 + e1.satAmount*0.6);
+      const satWetA = offlineCtx.createGain();
+      satWetA.gain.setValueAtTime(e1.satMix, 0);
+      if(e1.satMix !== 0){ satWetA.gain.setValueAtTime(e1.satMix, rampStart); satWetA.gain.linearRampToValueAtTime(0, rampEnd); }
 
-    const deHpO = offlineCtx.createBiquadFilter(); deHpO.type='highpass'; deHpO.frequency.value=val('deFreq'); deHpO.Q.value=0.7;
-    const deLpO = offlineCtx.createBiquadFilter(); deLpO.type='lowpass'; deLpO.frequency.value=val('deFreq'); deLpO.Q.value=0.7;
+      const satPreB = offlineCtx.createGain(); satPreB.gain.value = 1 + e2.satAmount*2;
+      const satShaperB = offlineCtx.createWaveShaper(); satShaperB.oversample = '4x'; satShaperB.curve = buildSaturationCurve(e2.satAmount);
+      const satPostB = offlineCtx.createGain(); satPostB.gain.value = 1/(1 + e2.satAmount*0.6);
+      const satWetB = offlineCtx.createGain();
+      satWetB.gain.setValueAtTime(0, 0);
+      if(e2.satMix !== 0){ satWetB.gain.setValueAtTime(0, rampStart); satWetB.gain.linearRampToValueAtTime(e2.satMix, rampEnd); }
+
+      satDryO.gain.setValueAtTime(1 - e1.satMix, 0);
+      if(e1.satMix !== e2.satMix){
+        satDryO.gain.setValueAtTime(1 - e1.satMix, rampStart);
+        satDryO.gain.linearRampToValueAtTime(1 - e2.satMix, rampEnd);
+      }
+
+      hi.connect(satDryO); hi.connect(satPreA); hi.connect(satPreB);
+      satPreA.connect(satShaperA); satShaperA.connect(satPostA); satPostA.connect(satWetA);
+      satPreB.connect(satShaperB); satShaperB.connect(satPostB); satPostB.connect(satWetB);
+      satDryO.connect(satSumO); satWetA.connect(satSumO); satWetB.connect(satSumO);
+      hiOut = satSumO;
+    }
+
+    const deHpO = offlineCtx.createBiquadFilter(); deHpO.type='highpass'; setParam(deHpO.frequency, 'deFreq', true); deHpO.Q.value=0.7;
+    const deLpO = offlineCtx.createBiquadFilter(); deLpO.type='lowpass'; setParam(deLpO.frequency, 'deFreq', true); deLpO.Q.value=0.7;
     const deCompO = offlineCtx.createDynamicsCompressor();
-    const deOnO = document.getElementById('deEnable') ? document.getElementById('deEnable').checked : true;
-    deCompO.threshold.value = deOnO ? val('deSens') : 0; deCompO.ratio.value = deOnO ? val('deAmount') : 1;
+    setParam(deCompO.threshold, 'deThresh'); setParam(deCompO.ratio, 'deRatio');
     deCompO.attack.value = 0.005; deCompO.release.value = 0.1; deCompO.knee.value = 6;
     const deSumO = offlineCtx.createGain();
 
-    const bassOnO = document.getElementById('bassEnable').checked;
-    const bassLpO = offlineCtx.createBiquadFilter(); bassLpO.type='lowpass'; bassLpO.Q.value=0.7; bassLpO.frequency.value=val('bassFreq');
-    const bassHpO = offlineCtx.createBiquadFilter(); bassHpO.type='highpass'; bassHpO.Q.value=0.7; bassHpO.frequency.value=val('bassFreq');
+    const bassLpO = offlineCtx.createBiquadFilter(); bassLpO.type='lowpass'; bassLpO.Q.value=0.7; setParam(bassLpO.frequency, 'bassFreq', true);
+    const bassHpO = offlineCtx.createBiquadFilter(); bassHpO.type='highpass'; bassHpO.Q.value=0.7; setParam(bassHpO.frequency, 'bassFreq', true);
     const bassCompO = offlineCtx.createDynamicsCompressor();
-    bassCompO.threshold.value = bassOnO ? val('bassThresh') : 0;
-    bassCompO.ratio.value = bassOnO ? val('bassRatio') : 1;
-    bassCompO.attack.value = val('bassAttack')/1000; bassCompO.release.value = val('bassRelease')/1000; bassCompO.knee.value = 6;
+    setParam(bassCompO.threshold, 'bassThresh'); setParam(bassCompO.ratio, 'bassRatio');
+    setParam(bassCompO.attack, 'bassAttack'); setParam(bassCompO.release, 'bassRelease'); bassCompO.knee.value = 6;
     const bassSumO = offlineCtx.createGain();
 
     const cp = offlineCtx.createDynamicsCompressor();
-    cp.threshold.value = val('thresh'); cp.ratio.value = val('ratio');
-    cp.attack.value = val('attack')/1000; cp.release.value = val('release')/1000; cp.knee.value = 6;
+    setParam(cp.threshold, 'thresh'); setParam(cp.ratio, 'ratio');
+    setParam(cp.attack, 'attack'); setParam(cp.release, 'release'); cp.knee.value = 6;
     const mk = offlineCtx.createGain();
-    mk.gain.value = dbToGain(val('makeup'));
+    setParam(mk.gain, 'makeupGain');
     const lim = offlineCtx.createDynamicsCompressor();
-    lim.threshold.value = val('ceil');
+    setParam(lim.threshold, 'ceil');
     lim.attack.value = 0.001; lim.release.value = 0.08; lim.knee.value = 0; lim.ratio.value = 20;
 
-    const w = val('width')/100;
     const wSplit = offlineCtx.createChannelSplitter(2);
     const wMidL = offlineCtx.createGain(); wMidL.gain.value = 0.5;
     const wMidR = offlineCtx.createGain(); wMidR.gain.value = 0.5;
@@ -4106,16 +4638,13 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const wSideL = offlineCtx.createGain(); wSideL.gain.value = 0.5;
     const wSideR = offlineCtx.createGain(); wSideR.gain.value = -0.5;
     const wSide = offlineCtx.createGain();
-    const wPos = offlineCtx.createGain(); wPos.gain.value = w;
-    const wNeg = offlineCtx.createGain(); wNeg.gain.value = -w;
+    const wPos = offlineCtx.createGain(); setParam(wPos.gain, 'width');
+    const wNeg = offlineCtx.createGain(); setParam(wNeg.gain, 'widthNeg');
     const wMerge = offlineCtx.createChannelMerger(2);
 
     src.connect(dry); dry.connect(offlineCtx.destination);
     src.connect(lo); lo.connect(subO); subO.connect(bassO); bassO.connect(lowmidO); lowmidO.connect(mid); mid.connect(himidO); himidO.connect(presenceO); presenceO.connect(hi);
-    hi.connect(satDryO); hi.connect(satPreO);
-    satPreO.connect(satShaperO); satShaperO.connect(satPostO); satPostO.connect(satWetO);
-    satDryO.connect(satSumO); satWetO.connect(satSumO);
-    satSumO.connect(deHpO); satSumO.connect(deLpO);
+    hiOut.connect(deHpO); hiOut.connect(deLpO);
     deHpO.connect(deCompO); deCompO.connect(deSumO); deLpO.connect(deSumO);
     deSumO.connect(bassLpO); deSumO.connect(bassHpO);
     bassLpO.connect(bassCompO); bassCompO.connect(bassSumO);
@@ -4333,6 +4862,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   }
 
   async function renderEnvelopeView(){
+    stopEnvPreview(); // the chart's about to redraw over a possibly different window — a preview mid-flight would now point at the wrong spot
     const emptyEl = document.getElementById('envEmpty');
     const btn = document.getElementById('envRenderBtn');
     const tr0 = T[currentLang] || T.en;
@@ -4375,6 +4905,43 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     btn.disabled = false; btn.textContent = tr0.btnRenderEnvelope || T.en.btnRenderEnvelope;
   }
   document.getElementById('envRenderBtn').addEventListener('click', renderEnvelopeView);
+
+  // ---- click anywhere on the envelope chart to hear the rendered Master
+  // starting from that point — the legend above tells you to go listen to
+  // the flagged (red) stretches, so make that one click away instead of a
+  // separate seek. This plays the actual rendered masteredBuffer directly
+  // (a plain BufferSource straight to destination), not the live
+  // re-processing graph the main transport buttons use — that's the exact
+  // audio the envelope curves were computed from, split/crossfade and all.
+  // Clicking again while it's already playing stops it (same toggle as the
+  // De-Harsher preview button) rather than restarting, since a bare click
+  // gives no other way to stop a preview partway through. Starting it also
+  // stops the main transport (Original/Pre Mastering Play) if that's
+  // running, and — symmetrically, see startPlayback() — starting the main
+  // transport stops this, so only one thing is ever audible at once. ----
+  document.getElementById('envCanvas').addEventListener('click', (e)=>{
+    if(!masteredBuffer) return;
+    if(envPreviewSource){ stopEnvPreview(); return; }
+    if(isPlaying) stopPlayback();
+
+    const wrap = e.currentTarget.parentElement;
+    const rect = wrap.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    const startSec = Math.max(0, parseFloat(document.getElementById('envStart').value)||0);
+    const durSec = Math.max(1, parseFloat(document.getElementById('envDur').value)||10);
+    const clickTime = Math.min(masteredBuffer.duration, startSec + ratio*durSec);
+
+    envPreviewSource = audioCtx.createBufferSource();
+    envPreviewSource.buffer = masteredBuffer;
+    envPreviewSource.connect(audioCtx.destination);
+    envPreviewSource.start(0, clickTime);
+    envPreviewWindowStart = startSec;
+    envPreviewWindowDur = durSec;
+    envPreviewStartedAt = audioCtx.currentTime - clickTime;
+    updateEnvPlayhead();
+    const thisSrc = envPreviewSource;
+    envPreviewSource.onended = ()=>{ if(envPreviewSource === thisSrc){ envPreviewSource = null; updateEnvPlayhead(); } };
+  });
 
   // ---- lightweight signal-based "analysis" (no ML — real DSP measurements) ----
   async function analyzeBuffer(buf){
@@ -5392,6 +5959,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       panelMixingDesk: 'Mixing Desk',
       panelEditHistory: 'Edit History',
       btnLogDownload: '📜 Download Log', logNote: 'The Log (unlike Undo) never overwrites anything, it\'s a running record of every edit, preset choice, undo, and jump you make, in order, even ones you later undid. Useful as a provenance record of how much of the final result came from manual, human-directed work.',
+      panelSplit: 'Section Split (vibe changes mid-track)',
+      descSplit: 'Turn this on to give the part of the track after your chosen timestamp its own fully independent EQ / Compressor / Bass Protect / Saturation / De-Harsher / Width / Vibe settings, smoothly crossfaded in. Leave it off and the tool behaves exactly as before — one setting for the whole track.',
+      splitEnableLabel: 'Split into two sections', splitTimeLabel: 'Split at (seconds)', splitCrossfadeLabel: 'Crossfade length (seconds)',
+      sectionTab1: 'Section 1 (Start)', sectionTab2: 'Section 2 (After split)',
+      btnCopySection: '📋 Copy Section 1 → Section 2',
+      splitCopyHint: 'Overwrites Section 2 with whatever\'s currently set in Section 1 — a quick way to give Section 2 a starting point instead of blank EQ/Compressor settings. You can still tweak Section 2 afterward.',
+      splitDragHint: 'Tip: drag the vertical marker on the Original/Master waveforms below to set the split point.',
+      splitStatusText: (t, cf) => `Split at ${t}, crossfade ${cf}s`,
       btnDlBundle: '📦 Download with Settings + Log (pick a folder)', dlBundleNote: 'Type a name, then pick one folder — the audio file, Settings file, and Log file all save there together with that name. Needs Chrome or Edge.', dlBundleSaved: '✓ Saved 3 files',
       dlBundleFolderHint: '⚠ Your browser won\'t let you pick "Downloads", "Documents", "Desktop", or a drive\'s top level directly (blocked for safety) — create or choose a subfolder inside one of those instead.',
       bundleModalTitle: 'Save with Settings + Log', bundleModalSub: 'Choose a folder and a name — the audio file, Settings file, and Log file will all be saved there together.',
@@ -5436,6 +6011,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       envStartLabel: 'Start (s)', envDurLabel: 'Duration (s)', btnRenderEnvelope: '📈 Render Envelope',
       legendOriginal: 'Original', legendMaster: 'Master', legendFlagged: 'Master diverges from Original here',
       envEmptyHint: 'Pick a band/window and click Render Envelope. Each curve is normalized to its own peak — you\'re comparing decay SHAPE, not loudness.',
+      envClickHint: '🖱 Click anywhere on the chart to hear the rendered Master starting from that point (stops Original/Pre Mastering Play if either is running) — click again to stop it.',
       compCurveHint: 'Drag the orange dot to set Threshold, the red dot to set Ratio — same as the EQ spectrum above.',
       bassCurveHint: 'Drag the orange dot to set Threshold, the red dot to set Ratio.',
       enableLabel: 'Enable', bassEnableLabel: 'On — process low end separately',
@@ -5563,6 +6139,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       panelMixingDesk: 'Mixing Desk',
       panelEditHistory: '수정 히스토리',
       btnLogDownload: '📜 로그 다운로드', logNote: '로그는(Undo와 다르게) 절대 덮어써지지 않아요, 모든 편집, 프리셋 선택, undo, jump가 실제로 일어난 순서 그대로 다 기록돼요, 나중에 되돌린 것까지 전부요. 최종 결과물에 사람이 얼마나 직접 관여했는지 증명하는 기록으로 쓸 수 있어요.',
+      panelSplit: '구간 분할 (곡 중간부터 바이브 전환)',
+      descSplit: '켜면 지정한 시점 이후 구간에 EQ / 컴프레서 / Bass Protect / Saturation / De-Harsher / Width / Vibe를 완전히 독립적으로 세팅할 수 있어요, 부드럽게 크로스페이드되며 전환됩니다. 꺼두면 지금까지와 완전히 동일하게 — 트랙 전체에 하나의 설정만 적용돼요.',
+      splitEnableLabel: '두 구간으로 나누기', splitTimeLabel: '분할 지점 (초)', splitCrossfadeLabel: '크로스페이드 길이 (초)',
+      sectionTab1: '구간 1 (시작)', sectionTab2: '구간 2 (분할 이후)',
+      btnCopySection: '📋 구간 1 → 구간 2 복사',
+      splitCopyHint: '지금 구간 1에 설정된 값을 그대로 구간 2에 덮어써요 — 구간 2를 빈 EQ/컴프레서 상태에서 시작하지 않게 해주는 빠른 방법이에요. 복사한 뒤에도 구간 2는 자유롭게 다시 조정할 수 있어요.',
+      splitDragHint: '팁: 아래 Original/Master 파형 위의 세로 마커를 드래그해서 분할 지점을 잡을 수 있어요.',
+      splitStatusText: (t, cf) => `${t} 지점에서 분할, 크로스페이드 ${cf}초`,
       btnDlBundle: '📦 설정+로그와 함께 다운로드 (폴더 선택)', dlBundleNote: '이름을 입력하고 폴더 하나만 고르면, 음원 파일·Settings 파일·Log 파일이 그 이름으로 한 번에 저장돼요, 크롬이나 엣지 브라우저 필요해요.', dlBundleSaved: '✓ 파일 3개 저장됨',
       dlBundleFolderHint: '⚠ "다운로드", "문서", "바탕화면", 드라이브 최상위 폴더는 브라우저가 보안상 직접 선택하지 못하게 막아요 — 그 안에 새 폴더를 만들거나 하위 폴더를 골라주세요.',
       bundleModalTitle: '설정+로그와 함께 저장', bundleModalSub: '폴더와 이름을 정하면, 음원 파일·Settings 파일·Log 파일이 그 안에 함께 저장돼요.',
@@ -5607,6 +6191,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       envStartLabel: '시작 (초)', envDurLabel: '길이 (초)', btnRenderEnvelope: '📈 엔벨로프 그리기',
       legendOriginal: '원본', legendMaster: '마스터', legendFlagged: '마스터가 원본과 크게 달라지는 구간',
       envEmptyHint: '대역/구간을 고르고 Render Envelope을 눌러보세요. 각 곡선은 자기 자신의 피크 기준으로 정규화돼있어서, 음량이 아니라 감쇠 형태(SHAPE)를 비교하는 용도예요.',
+      envClickHint: '🖱 차트를 아무 데나 클릭하면 그 지점부터 렌더링된 Master가 재생돼요(Original/Pre Mastering 재생 중이었다면 자동으로 멈춰요) — 다시 클릭하면 정지돼요.',
       compCurveHint: '주황 점을 끌면 Threshold, 빨간 점을 끌면 Ratio가 바뀝니다 — 위 EQ 스펙트럼과 같은 방식이에요.',
       bassCurveHint: '주황 점을 끌면 Threshold, 빨간 점을 끌면 Ratio가 바뀝니다.',
       enableLabel: '사용', bassEnableLabel: '켜짐 — 저역을 따로 처리',
@@ -5734,6 +6319,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       panelMixingDesk: 'Mixing Desk',
       panelEditHistory: 'Historial de Ediciones',
       btnLogDownload: '📜 Descargar Registro', logNote: 'El Registro (a diferencia de Undo) nunca sobrescribe nada, es un historial continuo de cada edicion, eleccion de preset, deshacer y salto que hagas, en orden, incluso los que despues deshiciste. Util como registro de procedencia de cuanto trabajo manual dirigido por humanos hay en el resultado final.',
+      panelSplit: 'Division en Secciones (el vibe cambia a mitad de la pista)',
+      descSplit: 'Activa esto para que la parte de la pista despues del punto elegido tenga su propio EQ / Compresor / Bass Protect / Saturacion / De-Harsher / Ancho / Vibe totalmente independientes, con una transicion suave. Dejalo apagado y la herramienta funciona exactamente como antes — un solo ajuste para toda la pista.',
+      splitEnableLabel: 'Dividir en dos secciones', splitTimeLabel: 'Punto de division (segundos)', splitCrossfadeLabel: 'Duracion del crossfade (segundos)',
+      sectionTab1: 'Seccion 1 (Inicio)', sectionTab2: 'Seccion 2 (Despues de la division)',
+      btnCopySection: '📋 Copiar Seccion 1 → Seccion 2',
+      splitCopyHint: 'Sobrescribe la Seccion 2 con lo que este puesto ahora en la Seccion 1 — una forma rapida de darle a la Seccion 2 un punto de partida en vez de EQ/Compresor vacios. Despues igual puedes ajustar la Seccion 2 libremente.',
+      splitDragHint: 'Consejo: arrastra el marcador vertical en las formas de onda Original/Master de abajo para fijar el punto de division.',
+      splitStatusText: (t, cf) => `Division en ${t}, crossfade de ${cf}s`,
       btnDlBundle: '📦 Descargar con Ajustes + Registro (elegir carpeta)', dlBundleNote: 'Escribe un nombre y elige una carpeta — el audio, los Ajustes y el Registro se guardan ahí juntos con ese nombre. Requiere Chrome o Edge.', dlBundleSaved: '✓ 3 archivos guardados',
       dlBundleFolderHint: '⚠ Tu navegador no permite elegir directamente "Descargas", "Documentos", "Escritorio" ni la raíz de una unidad (bloqueado por seguridad) — crea o elige una subcarpeta dentro de una de ellas.',
       bundleModalTitle: 'Guardar con Ajustes + Registro', bundleModalSub: 'Elige una carpeta y un nombre — el audio, los Ajustes y el Registro se guardarán ahí juntos.',
@@ -5778,6 +6371,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       envStartLabel: 'Inicio (s)', envDurLabel: 'Duración (s)', btnRenderEnvelope: '📈 Dibujar Envolvente',
       legendOriginal: 'Original', legendMaster: 'Máster', legendFlagged: 'El máster diverge del original aquí',
       envEmptyHint: 'Elige una banda/ventana y pulsa Render Envelope. Cada curva está normalizada a su propio pico — comparas la FORMA del decaimiento, no el volumen.',
+      envClickHint: '🖱 Haz clic en cualquier parte del grafico para escuchar el Master renderizado desde ese punto (detiene Original/Pre Mastering Play si estan sonando) — vuelve a hacer clic para detenerlo.',
       compCurveHint: 'Arrastra el punto naranja para fijar el Threshold, el punto rojo para el Ratio — igual que el espectro de EQ de arriba.',
       bassCurveHint: 'Arrastra el punto naranja para fijar el Threshold, el punto rojo para el Ratio.',
       enableLabel: 'Activar', bassEnableLabel: 'Activado — procesa los graves por separado',
@@ -5905,6 +6499,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       panelMixingDesk: 'Mixing Desk',
       panelEditHistory: '編集履歴',
       btnLogDownload: '📜 ログをダウンロード', logNote: 'ログは(Undoと違って)何も上書きしません、すべての編集、プリセット選択、undo、jumpを実際に起きた順番でそのまま記録します、後で取り消したものも含めて。最終結果にどれだけ人の手による作業が関わったかを証明する記録として使えます。',
+      panelSplit: 'セクション分割(曲の途中で雰囲気が変わる)',
+      descSplit: 'オンにすると、選んだ時点より後の部分にEQ／コンプレッサー／Bass Protect／サチュレーション／De-Harsher／Width／Vibeを完全に独立して設定でき、なめらかにクロスフェードします。オフのままなら今まで通り — トラック全体に1つの設定だけが適用されます。',
+      splitEnableLabel: '2つのセクションに分割', splitTimeLabel: '分割位置(秒)', splitCrossfadeLabel: 'クロスフェードの長さ(秒)',
+      sectionTab1: 'セクション1(開始)', sectionTab2: 'セクション2(分割後)',
+      btnCopySection: '📋 セクション1→セクション2にコピー',
+      splitCopyHint: '今セクション1に設定されている内容でセクション2を上書きします — セクション2をEQ/コンプレッサーが空の状態から始めなくて済む簡単な方法です。コピーした後もセクション2は自由に調整できます。',
+      splitDragHint: 'ヒント: 下のOriginal/Master波形上の縦のマーカーをドラッグして分割位置を設定できます。',
+      splitStatusText: (t, cf) => `${t}で分割、クロスフェード${cf}秒`,
       btnDlBundle: '📦 設定+ログと一緒にダウンロード(フォルダ選択)', dlBundleNote: '名前を入力してフォルダを1つ選ぶだけで、音声ファイル・Settings・Logがまとめてその名前で保存されます。Chrome または Edge が必要です。', dlBundleSaved: '✓ 3つのファイルを保存しました',
       dlBundleFolderHint: '⚠ 「ダウンロード」「ドキュメント」「デスクトップ」やドライブの最上位フォルダは、ブラウザが安全のため直接選択できないようにしています — その中に新しいフォルダを作るか、サブフォルダを選んでください。',
       bundleModalTitle: 'Settings + Logと一緒に保存', bundleModalSub: 'フォルダと名前を選ぶと、音声ファイル・Settingsファイル・Logファイルがまとめてそこに保存されます。',
@@ -5949,6 +6551,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       envStartLabel: '開始 (秒)', envDurLabel: '長さ (秒)', btnRenderEnvelope: '📈 エンベロープを描画',
       legendOriginal: 'オリジナル', legendMaster: 'マスター', legendFlagged: 'マスターがオリジナルと大きく異なる箇所',
       envEmptyHint: '帯域/区間を選んでRender Envelopeを押してください。各カーブは自身のピーク基準で正規化されているので、音量ではなく減衰の形(SHAPE)を比較しています。',
+      envClickHint: '🖱 グラフのどこかをクリックすると、その地点からレンダリング済みのMasterを再生します(Original/Pre Mastering再生中なら自動的に停止します) — もう一度クリックすると停止します。',
       compCurveHint: 'オレンジの点をドラッグするとThreshold、赤い点をドラッグするとRatioが変わります — 上のEQスペクトラムと同じ操作です。',
       bassCurveHint: 'オレンジの点をドラッグするとThreshold、赤い点をドラッグするとRatioが変わります。',
       enableLabel: '有効', bassEnableLabel: 'オン — 低域を別処理',
@@ -6076,6 +6679,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       panelMixingDesk: 'Mixing Desk',
       panelEditHistory: '编辑历史',
       btnLogDownload: '📜 下载日志', logNote: '日志(与Undo不同)绝不会覆盖任何内容，它按实际发生的顺序完整记录每一次编辑、预设选择、撤销和跳转，包括之后被撤销的部分。可作为证明最终成果中有多少人工主导工作的溯源记录。',
+      panelSplit: '分段设置(歌曲中途氛围变化)',
+      descSplit: '开启后，所选时间点之后的部分可以拥有完全独立的EQ／压缩器／Bass Protect／饱和／De-Harsher／宽度／Vibe设置，并平滑过渡。保持关闭则和以前完全一样 — 整首歌只用一套设置。',
+      splitEnableLabel: '分成两段', splitTimeLabel: '分割点(秒)', splitCrossfadeLabel: '过渡时长(秒)',
+      sectionTab1: '段落1(开头)', sectionTab2: '段落2(分割之后)',
+      btnCopySection: '📋 将段落1复制到段落2',
+      splitCopyHint: '用段落1当前的设置覆盖段落2 —— 让段落2不用从空白的EQ/压缩器开始，快速给它一个起点。复制之后仍然可以自由调整段落2。',
+      splitDragHint: '提示: 拖动下方Original/Master波形上的竖线标记即可设置分割点。',
+      splitStatusText: (t, cf) => `在${t}处分割，过渡${cf}秒`,
       btnDlBundle: '📦 连同设置+日志一起下载(选择文件夹)', dlBundleNote: '输入名字后只需选择一个文件夹 — 音频文件、设置文件和日志文件都会用这个名字一起保存在那里。需要Chrome或Edge浏览器。', dlBundleSaved: '✓ 已保存3个文件',
       dlBundleFolderHint: '⚠ 浏览器出于安全考虑，不允许直接选择"下载"、"文档"、"桌面"或磁盘根目录 — 请在里面新建或选择一个子文件夹。',
       bundleModalTitle: '连同设置+日志一起保存', bundleModalSub: '选择文件夹和名字，音频文件、设置文件和日志文件都会一起保存在那里。',
@@ -6120,6 +6731,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       envStartLabel: '起始 (秒)', envDurLabel: '时长 (秒)', btnRenderEnvelope: '📈 绘制包络',
       legendOriginal: '原始', legendMaster: '母带', legendFlagged: '母带在此处与原始明显不同',
       envEmptyHint: '选择频段/区间后点击Render Envelope。每条曲线都按自身峰值归一化 — 比较的是衰减的形状(SHAPE)，而非音量。',
+      envClickHint: '🖱 点击图表任意位置即可从那一点开始播放已渲染的Master(如果Original/Pre Mastering正在播放会自动停止) —— 再点一次即可停止。',
       compCurveHint: '拖动橙色点设置Threshold，拖动红色点设置Ratio — 与上方EQ频谱操作方式相同。',
       bassCurveHint: '拖动橙色点设置Threshold，拖动红色点设置Ratio。',
       enableLabel: '启用', bassEnableLabel: '开启 — 单独处理低频',
@@ -6258,6 +6870,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     if(typeof audioBuffer !== 'undefined' && audioBuffer) analyzeBuffer(audioBuffer);
     if(typeof lastMeasuredLufs !== 'undefined' && lastMeasuredLufs != null) updateDownloadSuggestions(lastMeasuredLufs);
     if(typeof lastMeasuredLufs !== 'undefined' && lastMeasuredLufs != null && typeof lastMeasuredPeak !== 'undefined' && lastMeasuredPeak != null) updatePlatformChecklist(lastMeasuredLufs, lastMeasuredPeak);
+    if(typeof updateSplitStatusText === 'function') updateSplitStatusText();
   }
 
   document.getElementById('langBtn').addEventListener('click', ()=>{
