@@ -409,6 +409,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   .drop .big{ font-size: 14px; color: var(--text); margin-bottom: 4px; }
   .drop .small{ font-size: 11.5px; color: var(--text-dim); font-family: var(--mono); }
   input[type=file]{ display:none; }
+  .stems-pick-btn{
+    font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--accent);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 16px; cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .stems-pick-btn:hover{ border-color: var(--accent); background: #141822; }
 
   .panel{
     background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
@@ -904,6 +910,26 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     </div>
     <div class="hero-hint" data-i18n="heroHint">↓ You'll be moved to the mastering page automatically</div>
   </div>
+
+  <div class="hero-card" id="stemsHeroCard">
+    <div class="drop" id="stemsDropZone" style="cursor:default;">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="margin-bottom:12px; color:var(--text-dim);">
+        <path d="M7 18a4.5 4.5 0 0 1-1.44-8.77A5.5 5.5 0 0 1 16.3 6.53 4.5 4.5 0 0 1 17 15h-1"/>
+        <path d="M12 12v9"/>
+        <path d="m9 15 3-3 3 3"/>
+      </svg>
+      <div class="big" data-i18n="stemsDropBig">Upload stems</div>
+      <div class="small" data-i18n="stemsDropSmall">Vocal / Bass / Drums / Extra — pick a folder or select files below</div>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:14px;">
+        <button type="button" class="stems-pick-btn" id="stemsPickFolderBtn" data-i18n="stemsPickFolderBtn">📁 Pick a folder</button>
+        <button type="button" class="stems-pick-btn" id="stemsPickFilesBtn" data-i18n="stemsPickFilesBtn">🎵 Pick files</button>
+      </div>
+      <input type="file" id="stemsFolderInput" webkitdirectory multiple accept="audio/*">
+      <input type="file" id="stemsFilesInput" multiple accept="audio/*">
+    </div>
+    <div class="hero-hint" data-i18n="stemsHeroHint">Master each stem independently, then sum them into one glued-together master.</div>
+    <div class="hero-hint hidden" id="stemsHeroError" style="color:var(--warn);"></div>
+  </div>
 </div>
 
 <div class="wrap">
@@ -1125,6 +1151,74 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         <div class="note" style="margin-top:6px;" data-i18n="splitCopyHint">Overwrites Section 2 with whatever's currently set in Section 1 — a quick way to give Section 2 a starting point instead of blank EQ/Compressor settings. You can still tweak Section 2 afterward.</div>
         <div class="note" style="margin-top:10px;" id="splitStatusText"></div>
         <div class="note" style="margin-top:6px;" data-i18n="splitDragHint">Tip: drag the vertical marker on the Original/Master waveforms below to set the split point.</div>
+      </div>
+    </div>
+
+    <div class="panel hidden" id="stemPanel">
+      <div class="panel-title" data-i18n="panelStems">Stem Mastering</div>
+      <div class="band-desc" data-i18n="descStems">Each stem below gets its own independent EQ / Compressor / Saturation / De-Harsher / Width, then everything sums through a shared Master Bus (compression + saturation) for glue. Switch tabs to edit a different stem — the Mixing Desk below always reflects whichever tab is active.</div>
+
+      <div id="stemsDurationWarning" class="note hidden" style="color:var(--warn);"></div>
+
+      <div class="fmt-tabs" id="stemTabs">
+        <div class="fmt-tab" id="stemTabVocal" data-slot="vocal" data-i18n="stemSlotVocal">Vocal</div>
+        <div class="fmt-tab" id="stemTabBass" data-slot="bass" data-i18n="stemSlotBass">Bass</div>
+        <div class="fmt-tab" id="stemTabDrums" data-slot="drums" data-i18n="stemSlotDrums">Drums &amp; Percussion</div>
+        <div class="fmt-tab" id="stemTabExtra" data-slot="extra" data-i18n="stemSlotExtra">Extra</div>
+        <div class="fmt-tab" id="stemTabOthers" data-slot="others" data-i18n="stemSlotOthers">Others</div>
+      </div>
+
+      <div id="stemSlotList" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
+
+      <button class="dl-btn" id="stemsPlayFullMixBtn" style="width:auto; padding:9px 16px; margin-top:12px;" data-i18n="btnPlayFullMix">🔊 Play Full Mix</button>
+      <div class="note" style="margin-top:6px;" data-i18n="stemsFullMixHint">Plays every stem summed together, unprocessed — a quick reference for what the raw combined song sounds like.</div>
+
+      <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
+        <div class="panel-title" style="font-size:12px;" data-i18n="panelMasterBus">Master Bus (shared)</div>
+        <div class="note" data-i18n="masterBusHint">The Bass Protect / Compressor / Loudness cards below always control this one shared bus, applied once after every stem is summed — they don't switch per stem tab like EQ/Saturation/De-Harsher/Width do.</div>
+        <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim); margin:10px 0 6px;">
+          <input type="checkbox" id="busSatEnable" checked style="width:16px;height:16px;">
+          <span data-i18n="busSatEnableLabel">Bus Saturation (glue)</span>
+        </label>
+        <div class="fmt-row" style="display:flex; gap:16px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:140px;">
+            <label data-i18n="busSatDriveLabel">Drive %</label>
+            <input type="range" id="busSatAmountSlider" min="0" max="100" step="1" value="15" style="width:100%;">
+          </div>
+          <div style="flex:1; min-width:140px;">
+            <label data-i18n="busSatMixLabel">Mix %</label>
+            <input type="range" id="busSatMixSlider" min="0" max="100" step="1" value="20" style="width:100%;">
+          </div>
+        </div>
+        <div class="note" style="margin-top:6px;" data-i18n="busSatHint">A light layer of saturation across the whole combined mix — this is what glues separately-mastered stems into one cohesive-sounding master, the same role Bass Protect/Compressor play at this stage.</div>
+
+        <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim); margin:0 0 8px;">
+            <input type="checkbox" id="duckEnable" style="width:16px;height:16px;">
+            <span data-i18n="duckEnableLabel">Sidechain Duck (pumping)</span>
+          </label>
+          <div class="fmt-row" style="display:flex; gap:10px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:150px;">
+              <label data-i18n="duckTriggerLabel">Trigger stem</label>
+              <select id="duckTriggerSelect" class="fmt-select">
+                <option value="vocal" data-i18n="stemSlotVocal">Vocal</option>
+                <option value="bass" data-i18n="stemSlotBass">Bass</option>
+                <option value="drums" selected data-i18n="stemSlotDrums">Drums &amp; Percussion</option>
+                <option value="extra" data-i18n="stemSlotExtra">Extra</option>
+                <option value="others" data-i18n="stemSlotOthers">Others</option>
+              </select>
+            </div>
+            <div style="flex:1; min-width:120px;">
+              <label data-i18n="duckAmountLabel">Amount %</label>
+              <input type="range" id="duckAmountSlider" min="0" max="90" step="1" value="30" style="width:100%;">
+            </div>
+            <div style="flex:1; min-width:120px;">
+              <label data-i18n="duckReleaseLabel">Release (ms)</label>
+              <input type="range" id="duckReleaseSlider" min="20" max="400" step="10" value="150" style="width:100%;">
+            </div>
+          </div>
+          <div class="note" style="margin-top:6px;" data-i18n="duckHint">Ducks every other stem in sync with the trigger stem's actual sound (e.g. pick Drums to make the other stems "pump" with the beat) — real audio-rate sidechain, not a tempo guess. Off by default — enable and dial in Amount/Release by ear.</div>
+        </div>
       </div>
     </div>
 
@@ -1643,6 +1737,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         <div class="history-empty" data-i18n="suggestionListEmpty">Run Mastering to get concrete suggestions for reaching a streaming-safe loudness, or pushing louder without breaking balance.</div>
       </div>
       <button class="dl-btn" id="dlBtn" disabled style="margin-top:14px;">Download WAV (24-bit)</button>
+      <div id="stemDownloadVariants" class="hidden" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+        <button class="dl-btn" id="dlMrBtn" style="background:var(--panel-2); color:var(--accent); border:1px solid var(--line);" data-i18n="btnDlMr">🎤 Download MR / Instrumental (no vocal)</button>
+        <button class="dl-btn" id="dlTvMixBtn" style="background:var(--panel-2); color:var(--accent); border:1px solid var(--line);" data-i18n="btnDlTvMix">📺 Download TV Mix (no lead vocal, keeps backing)</button>
+        <button class="dl-btn" id="dlAcapellaBtn" style="background:var(--panel-2); color:var(--accent); border:1px solid var(--line);" data-i18n="btnDlAcapella">🎙 Download Acapella (vocal only)</button>
+        <div class="note" data-i18n="stemVariantsHint">These reuse the same per-stem mastering above, just summing a different subset of stems — no extra rendering setup needed.</div>
+      </div>
       <button class="dl-btn" id="dlBundleBtn" disabled style="margin-top:8px; background:var(--panel-2); color:var(--accent); border:1px solid var(--accent);" data-i18n="btnDlBundle">📦 Download with Settings + Log (pick a folder)</button>
       <div class="note" id="dlBundleNote" data-i18n="dlBundleNote">Type a name, then pick one folder — the audio file, Settings file, and Log file all save there together with that name. Needs Chrome or Edge.</div>
       <div class="note" id="dlBundleFolderHint" style="color:var(--warn);" data-i18n="dlBundleFolderHint">⚠ Your browser won't let you pick "Downloads", "Documents", "Desktop", or a drive's top level directly (blocked for safety) — create or choose a subfolder inside one of those instead.</div>
@@ -1708,6 +1808,66 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   const fileNameLabel = document.getElementById('fileNameLabel');
 
   let audioCtx, audioBuffer, sourceNode, isPlaying = false, startedAt = 0, pausedAt = 0;
+
+  // ---- Stem Mastering: lets the user upload several stems (vocal/bass/
+  // drums/etc, e.g. Suno's stem export) instead of one mixed-down file, and
+  // master each one independently before summing them through a shared
+  // bus. Deliberately semi-fixed slots rather than a free-form list — up to
+  // ~13 raw stem files collapse into 5 named buckets, several files can
+  // land in the same bucket (they get summed together at decode time).
+  // `audioBuffer` (declared above) keeps meaning exactly what it always
+  // has — "the buffer every other subsystem (waveform/analysis/live
+  // playback) currently points at" — switching stem tabs just reassigns
+  // it, the same trick Section Split uses when swapping section snapshots
+  // onto the shared sliders. Mutually exclusive with Section Split. ----
+  let stemModeEnabled = false;
+  const STEM_SLOT_DEFS = [
+    // excludeKeywords wins over keywords — a filename like "Backing_Vocal.wav"
+    // still literally contains the substring "vocal", so a plain include()
+    // match would wrongly pull it into the lead Vocal slot. TV Mix (remove
+    // lead vocal, keep backing vocals) only works if backing/harmony files
+    // stay OUT of the Vocal slot and fall to Others instead.
+    { id:'vocal',  defaultLabel:'Vocal',               keywords:['vocal','vox','lead'], excludeKeywords:['backing','harmony','bvox','bg vocal','bgvocal','choir','adlib','ad-lib'] },
+    { id:'bass',   defaultLabel:'Bass',                keywords:['bass','sub'] },
+    { id:'drums',  defaultLabel:'Drums & Percussion',  keywords:['drum','perc','kick','snare','hat','beat'] },
+    { id:'extra',  defaultLabel:'Extra',               keywords:[] }, // auto-detect never assigns here — manual only
+    { id:'others', defaultLabel:'Others',              keywords:[] }, // catch-all for anything unmatched
+  ];
+  const STEM_SLOT_ORDER = STEM_SLOT_DEFS.map(d=>d.id);
+  // Bass Protect + Compressor + Loudness are the shared "Master Bus" stage
+  // in stem mode — applied once, after all stems are summed, never
+  // per-stem. So unlike EQ/Saturation/De-Harsher/Width (which DO get
+  // swapped per stem tab), these sliders are just always-live: whatever's
+  // on them right now IS the one shared bus setting, regardless of which
+  // stem tab happens to be active. That's why switching stem tabs (below)
+  // deliberately skips these keys instead of swapping them too.
+  const STEM_BUS_KEYS = ['bassFreq','bassThresh','bassRatio','bassAttack','bassRelease','thresh','ratio','attack','release','makeup','ceil'];
+  let stemSlots = {};          // { vocal:{label, files:[{name}], buffer, settings}, bass:{...}, ... }
+  let activeStemSlotId = null;
+  let stemsDrySumBuffer = null; // all stems summed, unprocessed — "Play Full Mix" reference
+
+  // sums same-shaped AudioBuffers sample-by-sample (used to combine
+  // multiple files landing in one slot, and to build the dry full-mix
+  // reference). Buffers may differ in length — the output is as long as
+  // the longest input, shorter ones just contribute silence past their end.
+  function sumAudioBuffers(buffers){
+    buffers = buffers.filter(Boolean);
+    if(buffers.length === 0) return null;
+    if(buffers.length === 1) return buffers[0];
+    const numberOfChannels = Math.max(...buffers.map(b=>b.numberOfChannels));
+    const length = Math.max(...buffers.map(b=>b.length));
+    const sampleRate = buffers[0].sampleRate;
+    const out = audioCtx.createBuffer(numberOfChannels, length, sampleRate);
+    for(const buf of buffers){
+      for(let c=0;c<numberOfChannels;c++){
+        const src = buf.getChannelData(Math.min(c, buf.numberOfChannels-1));
+        const dst = out.getChannelData(c);
+        for(let i=0;i<src.length;i++) dst[i] += src[i];
+      }
+    }
+    return out;
+  }
+
   // independent one-off playback used by the Envelope Viewer's "click the
   // chart to hear that part of the Master" feature — plays masteredBuffer
   // directly (not through the main transport's live graph), so it needs
@@ -1758,6 +1918,20 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     for(let i=0;i<n;i++){
       const x = (i/(n-1))*2 - 1;
       curve[i] = Math.tanh(k*x) / norm;
+    }
+    return curve;
+  }
+
+  // full-wave rectifier curve (output = |input|) — the first stage of the
+  // Sidechain Duck envelope follower in renderMasterStems() below: turns
+  // the trigger stem's raw waveform into an always-positive signal that a
+  // lowpass filter can then smooth into a volume envelope.
+  function buildRectifyCurve(){
+    const n = 1024;
+    const curve = new Float32Array(n);
+    for(let i=0;i<n;i++){
+      const x = (i/(n-1))*2 - 1;
+      curve[i] = Math.abs(x);
     }
     return curve;
   }
@@ -2507,6 +2681,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   function pushHistory(label){
     if(restoringSnapshot || !audioBuffer) return;
     if(splitEnabled && activeSection === 2) label = '[Section 2] ' + label;
+    if(stemModeEnabled && activeStemSlotId && stemSlots[activeStemSlotId]) label = `[${stemSlots[activeStemSlotId].label}] ` + label;
     history = history.slice(0, historyIndex+1);
     const snap = snapshotParams();
     history.push({ label, time: new Date(), snap });
@@ -2848,6 +3023,25 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     } else {
       resetSplitState();
     }
+
+    // Stem settings, if the file had any AND stems are already loaded in
+    // this session — audio can't be reconstructed from a text file, so a
+    // stems block loaded with no stem audio present is silently ignored
+    // rather than trying to half-restore a session with nothing to apply
+    // it to. Matches slots by fixed id (vocal/bass/drums/extra/others), so
+    // it only ever touches slots that already have audio in them.
+    if(snap.stemModeEnabled && snap.stems && stemModeEnabled){
+      STEM_SLOT_DEFS.forEach(def=>{
+        if(stemSlots[def.id] && stemSlots[def.id].buffer && snap.stems[def.id]){
+          stemSlots[def.id].settings = snap.stems[def.id];
+        }
+      });
+      if(activeStemSlotId && stemSlots[activeStemSlotId] && stemSlots[activeStemSlotId].settings){
+        applyStemState(stemSlots[activeStemSlotId].settings);
+      }
+      renderStemSlotList();
+      logEvent('Edit', 'Stem settings loaded from file');
+    }
   }
 
   // ---- Copy all current Mixing Desk settings as plain text — handy for
@@ -2876,6 +3070,31 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     lines.push(...sectionSnapshotToLines('Section B', section2State));
     return lines.join('\n');
   }
+  // ---- Stem Mastering settings text — same idea as Section A/B above, one
+  // prefixed block per fixed slot, but excluding STEM_BUS_KEYS (those are
+  // already covered by the plain flat block below, since bus sliders are
+  // always-live regardless of which stem tab is active — see STEM_BUS_KEYS
+  // comment near the state model). Mutually exclusive with Split, so a
+  // saved file never has both blocks. ----
+  const STEM_ONLY_KEYS = SETTINGS_SLIDER_KEYS.filter(k=> !STEM_BUS_KEYS.includes(k));
+  function stemSnapshotToLines(prefix, snap){
+    snap = snap || {};
+    const lines = STEM_ONLY_KEYS.map(k => `${prefix} — ${SETTINGS_LABELS[k]}: ${snap[k]}`);
+    lines.push(`${prefix} — Saturation Enable: ${snap.satEnable ? 'On' : 'Off'}`);
+    lines.push(`${prefix} — De-Harsher Enable: ${snap.deEnable ? 'On' : 'Off'}`);
+    return lines;
+  }
+  function getStemSettingsText(){
+    if(activeStemSlotId) stemSlots[activeStemSlotId].settings = captureStemState();
+    const lines = ['Stem Mode: On'];
+    STEM_SLOT_DEFS.forEach(def=>{
+      const settings = stemSlots[def.id] && stemSlots[def.id].settings;
+      if(!settings) return; // empty/never-visited slot (no stem audio in it) — nothing to save
+      lines.push('');
+      lines.push(...stemSnapshotToLines('Stem: '+def.defaultLabel, settings));
+    });
+    return lines.join('\n');
+  }
   function getSettingsText(){
     const snap = getSettingsSnapshot();
     const lines = SETTINGS_SLIDER_KEYS.map(k => `${SETTINGS_LABELS[k]}: ${snap[k]}`);
@@ -2886,6 +3105,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     if(splitEnabled && splitTimeSec != null){
       syncActiveSectionState();
       out += '\n\n' + getSplitSettingsText();
+    } else if(stemModeEnabled){
+      out += '\n\n' + getStemSettingsText();
     }
     return out;
   }
@@ -3006,6 +3227,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   function parseSettingsText(text){
     const snap = {};
     const sectionA = {}, sectionB = {};
+    const stems = {}; // slotId -> partial settings object
     text.split('\n').forEach(line=>{
       const idx = line.indexOf(':');
       if(idx === -1) return;
@@ -3015,10 +3237,19 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       if(label === 'Split Enabled'){ snap.splitEnabled = /^on$/i.test(valueStr); return; }
       if(label === 'Split Time (s)'){ const n = parseFloat(valueStr); if(!isNaN(n)) snap.splitTimeSec = n; return; }
       if(label === 'Split Crossfade (s)'){ const n = parseFloat(valueStr); if(!isNaN(n)) snap.splitCrossfadeSec = n; return; }
+      if(label === 'Stem Mode'){ snap.stemModeEnabled = /^on$/i.test(valueStr); return; }
 
       let target = snap, rawLabel = label;
       if(label.startsWith('Section A — ')){ target = sectionA; rawLabel = label.slice('Section A — '.length); }
       else if(label.startsWith('Section B — ')){ target = sectionB; rawLabel = label.slice('Section B — '.length); }
+      else {
+        const stemDef = STEM_SLOT_DEFS.find(def=> label.startsWith('Stem: '+def.defaultLabel+' — '));
+        if(stemDef){
+          rawLabel = label.slice(('Stem: '+stemDef.defaultLabel+' — ').length);
+          if(!stems[stemDef.id]) stems[stemDef.id] = {};
+          target = stems[stemDef.id];
+        }
+      }
 
       if(rawLabel === 'Bass Protect Enable'){ target.bassEnable = /^on$/i.test(valueStr); return; }
       if(rawLabel === 'Saturation Enable'){ target.satEnable = /^on$/i.test(valueStr); return; }
@@ -3031,6 +3262,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     });
     if(Object.keys(sectionA).length) snap.sectionA = sectionA;
     if(Object.keys(sectionB).length) snap.sectionB = sectionB;
+    if(Object.keys(stems).length) snap.stems = stems;
     return snap;
   }
 
@@ -3368,6 +3600,56 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     invalidateMaster();
   }
 
+  // Stem-mode counterparts of captureSectionState()/applySectionState()
+  // above — deliberately a separate pair of functions rather than adding a
+  // "which keys to skip" parameter to the existing ones, so Section Split
+  // (already shipped and tested) keeps working through code that's
+  // untouched by stems. The only difference: STEM_BUS_KEYS are skipped,
+  // since those belong to the shared Master Bus, not to any one stem.
+  function captureStemState(){
+    const snap = {};
+    SETTINGS_SLIDER_KEYS.forEach(k=>{
+      if(STEM_BUS_KEYS.includes(k)) return;
+      const s = document.getElementById(k+'Slider');
+      if(s) snap[k] = parseFloat(s.value);
+    });
+    snap.satEnable = document.getElementById('satEnable').checked;
+    snap.deEnable = document.getElementById('deEnable').checked;
+    snap.presetValue = document.getElementById('presetSelect').value;
+    snap.vibeTags = collectLayerValues(VIBE_LAYER_IDS);
+    snap.vibeBase = vibeBaseSnapshot ? {...vibeBaseSnapshot} : null;
+    return snap;
+  }
+
+  function applyStemState(snap){
+    if(!snap) return;
+    restoringSnapshot = true;
+    SETTINGS_SLIDER_KEYS.forEach(k=>{
+      if(STEM_BUS_KEYS.includes(k)) return;
+      if(snap[k] == null) return;
+      const s = document.getElementById(k+'Slider');
+      if(s){ s.value = snap[k]; s.dispatchEvent(new Event('input')); }
+    });
+    if(snap.satEnable != null) document.getElementById('satEnable').checked = !!snap.satEnable;
+    if(snap.deEnable != null) document.getElementById('deEnable').checked = !!snap.deEnable;
+    document.getElementById('presetSelect').value = snap.presetValue || '';
+    document.getElementById('presetDesc').textContent = currentPresetDescText();
+    VIBE_LAYER_IDS.forEach(id=>{
+      document.querySelectorAll('#'+id+' .layer-chip').forEach(chip=>{
+        chip.classList.toggle('active', (snap.vibeTags||[]).includes(chip.dataset.value));
+      });
+      const atMax = document.querySelectorAll('#'+id+' .layer-chip.active').length >= LAYER_MAX;
+      document.querySelectorAll('#'+id+' .layer-chip').forEach(c=>{
+        c.disabled = atMax && !c.classList.contains('active');
+      });
+    });
+    vibeBaseSnapshot = snap.vibeBase ? {...snap.vibeBase} : null;
+    restoringSnapshot = false;
+    applyAllParams();
+    updateGenreCard();
+    invalidateMaster();
+  }
+
   // saves whatever's currently on the sliders into the section it belongs
   // to — call this before reading section1State/section2State for anything
   // (switching tabs, rendering, saving to file) so the "live" section is
@@ -3395,6 +3677,27 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     if(statusEl) statusEl.textContent = '';
   }
 
+  // mirrors resetSplitState() above, for the other direction — called on
+  // both "remove track"/reset and "load a single track" (Stem Mastering
+  // and Section Split are mutually exclusive in this version, so loading
+  // one clears the other).
+  function resetStemState(){
+    stemModeEnabled = false;
+    stemSlots = {};
+    activeStemSlotId = null;
+    stemsDrySumBuffer = null;
+    const panel = document.getElementById('stemPanel');
+    if(panel) panel.classList.add('hidden');
+    const warnEl = document.getElementById('stemsDurationWarning');
+    if(warnEl) warnEl.classList.add('hidden');
+    const listEl = document.getElementById('stemSlotList');
+    if(listEl) listEl.innerHTML = '';
+    const variantsEl = document.getElementById('stemDownloadVariants');
+    if(variantsEl) variantsEl.classList.add('hidden');
+    const heroErrorEl = document.getElementById('stemsHeroError');
+    if(heroErrorEl) heroErrorEl.classList.add('hidden');
+  }
+
   function updateGenreCard(){
     const el = document.getElementById('anGenre');
     const parts = [];
@@ -3404,6 +3707,16 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   }
 
   // ---- file loading ----
+  // Safety net: if a drag/drop lands anywhere outside the single-file drop
+  // zone below (easy to do — the OS drag ghost can be large and the exact
+  // drop pixel is hard to land), the browser's default action is to
+  // navigate the page to that file — which on file:// looks exactly like
+  // "nothing happens". Without this, that failure mode is silent. This does
+  // not change behavior for drops that DO land on the drop zone — that
+  // already calls preventDefault() itself.
+  window.addEventListener('dragover', e=> e.preventDefault());
+  window.addEventListener('drop', e=> e.preventDefault());
+
   ['dragover','dragleave','drop'].forEach(evt=>{
     dropZone.addEventListener(evt, e=>{
       e.preventDefault();
@@ -3419,11 +3732,45 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   dropZone.addEventListener('click', ()=> fileInput.click());
   fileInput.addEventListener('change', e=>{ if(e.target.files[0]) loadFile(e.target.files[0]); });
 
+  // ---- Stem Mastering: click-to-upload only (zip support deferred —
+  // DEFLATE decompression is real new DSP-adjacent code, not plumbing, and
+  // this feature is large enough already). Drag-and-drop was tried and
+  // reverted: real-world testing (folder, multiple files, even a single
+  // file) never delivered a 'drop' event at all in this environment despite
+  // several rounds of fixes (dragenter/dragover preventDefault, dropEffect,
+  // a window-level safety net, getAsFile() fallback for null
+  // webkitGetAsEntry() results) — the event plumbing itself was verified
+  // correct via synthetic dispatch, so whatever's blocking it lives below
+  // the DOM event layer (OS/browser drag-source negotiation) and isn't
+  // fixable from here. Two explicit buttons instead: one opens a folder
+  // picker (<input webkitdirectory>, for a stems folder), the other opens a
+  // plain multi-file picker (<input multiple>, no directory requirement —
+  // for picking individual files across folders, or replacing just a few).
+  // Both normalize down to a plain File[] as early as possible so
+  // everything downstream is one code path. ----
+  const stemsFolderInput = document.getElementById('stemsFolderInput');
+  const stemsFilesInput = document.getElementById('stemsFilesInput');
+  const AUDIO_FILE_RE = /\.(wav|wave|mp3|m4a|aac|flac|aiff|aif|ogg)$/i;
+  function isLikelyAudioFile(f){ return (f.type && f.type.startsWith('audio/')) || AUDIO_FILE_RE.test(f.name); }
+
+  document.getElementById('stemsPickFolderBtn').addEventListener('click', ()=> stemsFolderInput.click());
+  document.getElementById('stemsPickFilesBtn').addEventListener('click', ()=> stemsFilesInput.click());
+  stemsFolderInput.addEventListener('change', (e)=>{
+    const files = Array.from(e.target.files || []).filter(isLikelyAudioFile);
+    if(files.length) loadStemFiles(files);
+  });
+  stemsFilesInput.addEventListener('change', (e)=>{
+    const files = Array.from(e.target.files || []).filter(isLikelyAudioFile);
+    if(files.length) loadStemFiles(files);
+  });
+
   document.getElementById('resetBtn').addEventListener('click', resetAll);
   function resetAll(){
     if(isPlaying) stopPlayback(true);
     audioBuffer = null;
     masteredBuffer = null;
+    resetStemState();
+    document.getElementById('splitPanel').classList.remove('hidden');
     fileNameLabel.textContent = '—';
     selectedLoudnessTarget = '-14';
     document.querySelectorAll('#targetTabs .target-tab').forEach(t=>t.classList.remove('active'));
@@ -3507,8 +3854,281 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     lastMeasuredLufs = null;
     history = []; historyIndex = -1;
     resetSplitState();
+    resetStemState(); // Section Split and Stem Mastering are mutually exclusive — loading a single track always means Split mode
+    document.getElementById('splitPanel').classList.remove('hidden');
     pushHistory('Initial upload');
   }
+
+  // ---- Stem Mastering: load N stem files, auto-slot them, and switch the
+  // sliders onto the first slot. Mirrors loadFile()'s side effects (reveal
+  // appArea, initGraph, waveform/spectrum/analysis reset, history reset)
+  // but decodes several files and builds the slot model instead of pointing
+  // straight at one buffer. ----
+  async function loadStemFiles(files){
+    if(!files || !files.length) return;
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+
+    // Decode each file independently so one bad/corrupt/unsupported file
+    // doesn't silently kill the whole batch (this was a real bug: a single
+    // decodeAudioData() rejection used to abort the `for` loop with an
+    // uncaught promise rejection, leaving the panel hidden and no feedback
+    // at all — indistinguishable from "drag-and-drop just doesn't work").
+    const decoded = [];
+    const failed = [];
+    for(const f of files){
+      try{
+        const arrBuf = await f.arrayBuffer();
+        const buffer = await audioCtx.decodeAudioData(arrBuf.slice(0));
+        decoded.push({ name: f.name, buffer });
+      }catch(err){
+        console.log('[stems] failed to decode', f.name, err);
+        failed.push(f.name);
+      }
+    }
+    const warnEl = document.getElementById('stemsDurationWarning');
+    const heroErrorEl = document.getElementById('stemsHeroError');
+    if(decoded.length === 0){
+      // still on the hero screen at this point (stemPanel isn't revealed
+      // yet) — showing this in stemsDurationWarning would be invisible
+      // since its parent panel is still display:none, so it goes in the
+      // hero card instead, right where the drop just happened.
+      const tr0 = T[currentLang] || T.en;
+      heroErrorEl.textContent = (tr0.stemsErrNoneReadable || T.en.stemsErrNoneReadable)(failed.join(', '));
+      heroErrorEl.classList.remove('hidden');
+      return;
+    }
+    heroErrorEl.classList.add('hidden');
+
+    // duration mismatch — warn, don't block. Stems should already share one
+    // timeline (nothing here trims audio); a real mismatch usually means an
+    // odd export or the wrong file got dropped in.
+    const durations = decoded.map(d=>d.buffer.duration);
+    const maxDur = Math.max(...durations), minDur = Math.min(...durations);
+    if(failed.length){
+      const tr0 = T[currentLang] || T.en;
+      warnEl.textContent = (tr0.stemsErrSomeSkipped || T.en.stemsErrSomeSkipped)(failed.length, failed.join(', '));
+      warnEl.classList.remove('hidden');
+    } else if(maxDur - minDur > 0.5){
+      const longest = decoded.find(d=>d.buffer.duration===maxDur).name;
+      const shortest = decoded.find(d=>d.buffer.duration===minDur).name;
+      const tr0 = T[currentLang] || T.en;
+      warnEl.textContent = (tr0.stemsErrDurationMismatch || T.en.stemsErrDurationMismatch)(shortest, fmtTime(minDur), longest, fmtTime(maxDur));
+      warnEl.classList.remove('hidden');
+    } else {
+      warnEl.classList.add('hidden');
+    }
+
+    // auto-assign by filename keyword, priority order Vocal -> Bass -> Drums;
+    // anything unmatched (including Extra, which auto-detect never touches)
+    // falls to Others until the user manually reassigns it.
+    stemSlots = {};
+    STEM_SLOT_DEFS.forEach(def=>{ stemSlots[def.id] = { label: def.defaultLabel, files: [], buffer: null, settings: null }; });
+    decoded.forEach(d=>{
+      const lower = d.name.toLowerCase();
+      const def = STEM_SLOT_DEFS.find(def=>
+        !(def.excludeKeywords||[]).some(kw=> lower.includes(kw)) &&
+        def.keywords.some(kw=> lower.includes(kw))
+      );
+      stemSlots[def ? def.id : 'others'].files.push(d);
+    });
+    STEM_SLOT_DEFS.forEach(def=>{ stemSlots[def.id].buffer = sumAudioBuffers(stemSlots[def.id].files.map(f=>f.buffer)); });
+    stemsDrySumBuffer = sumAudioBuffers(decoded.map(d=>d.buffer));
+
+    stemModeEnabled = true;
+    activeStemSlotId = null;
+    fileNameLabel.textContent = `${decoded.length} stems`;
+    appArea.classList.remove('hidden');
+    document.getElementById('heroSection').style.display = 'none';
+    document.getElementById('stemPanel').classList.remove('hidden');
+    document.getElementById('stemDownloadVariants').classList.remove('hidden');
+
+    const firstSlotId = STEM_SLOT_ORDER.find(id=> stemSlots[id].buffer);
+    audioBuffer = stemSlots[firstSlotId].buffer; // set before initGraph, matches loadFile()'s ordering
+    initGraph();
+    document.getElementById('dlBtn').disabled = false;
+    masteredBuffer = null;
+    waveEmptyB.style.display = 'flex';
+    waveCtxB.clearRect(0,0,waveCanvasB.width, waveCanvasB.height);
+    drawMeterLoop();
+    history = []; historyIndex = -1;
+    resetSplitState();
+    document.getElementById('splitPanel').classList.add('hidden'); // mutually exclusive with Section Split in this version
+
+    renderStemSlotList();
+    switchToStemSlot(firstSlotId);
+    pushHistory('Initial stems upload');
+  }
+
+  // reuses the same snapshot-swap trick Section Split uses for its two
+  // sections — a stem "tab" is nothing more than which snapshot is
+  // currently loaded onto the shared sliders — but through
+  // captureStemState()/applyStemState() (STEM_BUS_KEYS-excluding
+  // variants above) instead of Section Split's own functions, since the
+  // Master Bus cards must NOT get swapped out when switching stems.
+  function switchToStemSlot(slotId){
+    if(!stemModeEnabled || !stemSlots[slotId] || !stemSlots[slotId].buffer) return;
+    if(slotId === activeStemSlotId) return;
+    if(isPlaying) stopPlayback(true);
+    if(activeStemSlotId) stemSlots[activeStemSlotId].settings = captureStemState();
+    activeStemSlotId = slotId;
+    audioBuffer = stemSlots[slotId].buffer;
+    if(!stemSlots[slotId].settings) stemSlots[slotId].settings = captureStemState();
+    applyStemState(stemSlots[slotId].settings);
+    drawWaveform(audioBuffer, waveCanvasA, waveWrapA, waveCtxA, 'rgba(79,214,196,0.85)');
+    document.getElementById('timeLabel').textContent = `00:00 / ${fmtTime(audioBuffer.duration)}`;
+    document.getElementById('spectrumEmpty').style.display = 'none';
+    drawSpectrum(audioBuffer);
+    buildEqCurveSvg();
+    COMP_CURVES.forEach(buildCompCurveSvg);
+    EQ_CARD_CURVES.forEach(buildEqCardCurveSvg);
+    buildSatCurveSvg();
+    analyzeBuffer(audioBuffer);
+    invalidateMaster();
+    updateStemTabUI();
+  }
+
+  function stemTabElId(slotId){ return 'stemTab' + slotId.charAt(0).toUpperCase() + slotId.slice(1); }
+
+  function updateStemTabUI(){
+    STEM_SLOT_ORDER.forEach(id=>{
+      const tab = document.getElementById(stemTabElId(id));
+      if(tab) tab.classList.toggle('active', id === activeStemSlotId);
+    });
+  }
+
+  // Slot rows are labeled from this map at render time (not from
+  // stemSlots[id].label, which just holds the fixed English defaultLabel)
+  // so switching language relabels an already-loaded list instead of
+  // freezing it in whatever language was active when files were dropped.
+  const STEM_SLOT_I18N_KEYS = { vocal:'stemSlotVocal', bass:'stemSlotBass', drums:'stemSlotDrums', extra:'stemSlotExtra', others:'stemSlotOthers' };
+  function stemSlotDisplayLabel(id){
+    const tr0 = T[currentLang] || T.en;
+    const key = STEM_SLOT_I18N_KEYS[id];
+    return (key && (tr0[key] || T.en[key])) || stemSlots[id].label;
+  }
+
+  // rebuilds the slot list from stemSlots — same "wipe innerHTML, rebuild
+  // with createElement" idiom renderHistoryLog() uses for its dynamic rows,
+  // just applied to a fixed 5-row list instead of an unbounded array.
+  function renderStemSlotList(){
+    const el = document.getElementById('stemSlotList');
+    el.innerHTML = '';
+    STEM_SLOT_DEFS.forEach(def=>{
+      const slot = stemSlots[def.id];
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:8px; background:var(--panel-2); border:1px solid var(--line); border-radius:8px;';
+      const label = document.createElement('span');
+      label.style.cssText = 'font-size:12.5px; font-weight:600; min-width:120px;';
+      label.textContent = stemSlotDisplayLabel(def.id);
+      row.appendChild(label);
+      if(!slot.files.length){
+        const empty = document.createElement('span');
+        empty.style.cssText = 'font-size:11.5px; color:var(--text-dim);';
+        empty.textContent = '—';
+        row.appendChild(empty);
+      } else {
+        slot.files.forEach(f=>{
+          const chip = document.createElement('span');
+          chip.style.cssText = 'display:inline-flex; align-items:center; gap:5px; background:#0a0c10; border:1px solid var(--line); border-radius:6px; padding:3px 8px; font-size:11px;';
+          const nameSpan = document.createElement('span');
+          nameSpan.textContent = f.name;
+          chip.appendChild(nameSpan);
+          const sel = document.createElement('select');
+          sel.style.cssText = 'font-size:10.5px; background:transparent; color:var(--text-dim); border:none;';
+          STEM_SLOT_DEFS.forEach(d2=>{
+            const opt = document.createElement('option');
+            opt.value = d2.id; opt.textContent = stemSlotDisplayLabel(d2.id);
+            if(d2.id === def.id) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          sel.addEventListener('change', ()=> reassignStemFile(def.id, f, sel.value));
+          chip.appendChild(sel);
+          row.appendChild(chip);
+        });
+      }
+      // Extra never auto-detects (by design — it's the one manually-picked
+      // slot), so the only way in was the per-chip reassign <select> above,
+      // buried inside whichever slot the file already landed in. This button
+      // surfaces that same reassignment (Others -> Extra specifically) right
+      // on the Extra row itself, since that's where a user actually looks
+      // for it. Not selecting anything in the picker is a no-op by design.
+      if(def.id === 'extra'){
+        const othersSlot = stemSlots['others'];
+        if(othersSlot && othersSlot.files.length){
+          const tr0 = T[currentLang] || T.en;
+          const addBtn = document.createElement('button');
+          addBtn.type = 'button';
+          addBtn.textContent = tr0.stemsAddToExtraBtn || T.en.stemsAddToExtraBtn;
+          addBtn.style.cssText = 'font-size:11px; padding:4px 9px; background:var(--panel); border:1px solid var(--line); border-radius:6px; color:var(--accent); cursor:pointer;';
+          const picker = document.createElement('select');
+          picker.style.cssText = 'display:none; font-size:11px; background:#0a0c10; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:3px 6px;';
+          const placeholderOpt = document.createElement('option');
+          placeholderOpt.value = '';
+          placeholderOpt.textContent = tr0.stemsAddToExtraPlaceholder || T.en.stemsAddToExtraPlaceholder;
+          picker.appendChild(placeholderOpt);
+          othersSlot.files.forEach((f, idx)=>{
+            const opt = document.createElement('option');
+            opt.value = String(idx);
+            opt.textContent = f.name;
+            picker.appendChild(opt);
+          });
+          addBtn.addEventListener('click', ()=>{
+            picker.style.display = picker.style.display === 'none' ? 'inline-block' : 'none';
+          });
+          picker.addEventListener('change', ()=>{
+            if(picker.value === '') return; // left on placeholder -> proceed as-is, no reassignment
+            const idx = parseInt(picker.value, 10);
+            const fileEntry = othersSlot.files[idx];
+            if(fileEntry) reassignStemFile('others', fileEntry, 'extra');
+          });
+          row.appendChild(addBtn);
+          row.appendChild(picker);
+        }
+      }
+      el.appendChild(row);
+    });
+  }
+
+  function reassignStemFile(fromId, fileEntry, toId){
+    if(fromId === toId) return;
+    stemSlots[fromId].files = stemSlots[fromId].files.filter(f=> f !== fileEntry);
+    stemSlots[toId].files.push(fileEntry);
+    stemSlots[fromId].buffer = sumAudioBuffers(stemSlots[fromId].files.map(f=>f.buffer));
+    stemSlots[toId].buffer = sumAudioBuffers(stemSlots[toId].files.map(f=>f.buffer));
+    if(activeStemSlotId === fromId) audioBuffer = stemSlots[fromId].buffer;
+    if(activeStemSlotId === toId) audioBuffer = stemSlots[toId].buffer;
+    renderStemSlotList();
+    invalidateMaster();
+    logEvent('Edit', `Stem: moved ${fileEntry.name} from ${stemSlots[fromId].label} to ${stemSlots[toId].label}`);
+  }
+
+  STEM_SLOT_DEFS.forEach(def=>{
+    const tab = document.getElementById(stemTabElId(def.id));
+    if(tab) tab.addEventListener('click', ()=> switchToStemSlot(def.id));
+  });
+
+  document.getElementById('stemsPlayFullMixBtn').addEventListener('click', ()=>{
+    if(!stemsDrySumBuffer) return;
+    if(isPlaying) stopPlayback(true);
+    const restoreBuffer = activeStemSlotId ? stemSlots[activeStemSlotId].buffer : audioBuffer;
+    audioBuffer = stemsDrySumBuffer;
+    setMode('A');
+    startPlayback(0); // synchronous — captures stemsDrySumBuffer into sourceNode.buffer immediately
+    audioBuffer = restoreBuffer; // restore right away so everything else (Run Mastering, tab switches) still refers to the active stem
+  });
+
+  // Master Bus glue controls — plain inputs (not run through bindPair(),
+  // which is wired to the fixed SETTINGS_SLIDER_KEYS/GR-meter card
+  // machinery) since these are new, stem-mode-only values read directly by
+  // renderMasterStems() via val('busSatAmount')/val('busSatMix').
+  ['busSatEnable','busSatAmountSlider','busSatMixSlider','duckEnable','duckTriggerSelect','duckAmountSlider','duckReleaseSlider'].forEach(id=>{
+    const el = document.getElementById(id);
+    const evt = el.type==='checkbox' ? 'change' : (el.tagName==='SELECT' ? 'change' : 'input');
+    el.addEventListener(evt, ()=>{
+      invalidateMaster();
+      scheduleHistoryPush('Manual edit');
+    });
+  });
 
   // ---- waveform ----
   const waveCanvasA = document.getElementById('waveCanvasA');
@@ -3676,7 +4296,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   sectionTab2.addEventListener('click', ()=> switchToSection(2));
 
   splitEnableToggle.addEventListener('change', (e)=>{
-    if(!audioBuffer){ e.target.checked = false; return; }
+    if(!audioBuffer || stemModeEnabled){ e.target.checked = false; return; } // mutually exclusive with Stem Mastering
     splitEnabled = e.target.checked;
     splitControlsWrap.classList.toggle('hidden', !splitEnabled);
     if(splitEnabled){
@@ -4300,20 +4920,39 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     if(!glossaryPopup) return;
     const doc = glossaryPopup.document;
     doc.open();
-    doc.write(`<!DOCTYPE html><html><head><title>Glossary</title><meta charset="utf-8"><style>
+    doc.write(`<!DOCTYPE html><html><head><title>Guide &amp; Glossary</title><meta charset="utf-8"><style>
       body{background:#0d0f14;color:#e7e5df;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;margin:0;padding:22px;}
       h2{font-size:13px;color:#4fd6c4;margin:20px 0 6px;}
       h2:first-of-type{margin-top:0;}
+      h3{font-size:11.5px;color:#e7e5df;margin:14px 0 4px;}
       p{font-size:12px;color:#c8c6c0;line-height:1.6;margin:0 0 4px;}
+      ul,ol{font-size:12px;color:#c8c6c0;line-height:1.6;margin:0 0 8px;padding-left:20px;}
+      li{margin-bottom:6px;}
+      strong{color:#e7e5df;}
       hr{border:none;border-top:1px solid #2a2f3a;margin:14px 0;}
     </style></head><body id="glossaryBody"></body></html>`);
     doc.close();
     const body = doc.getElementById('glossaryBody');
+    // Usage guide + terminology goes first (translated, static per language) —
+    // the per-control descriptions below are auto-scraped from whatever
+    // cards currently exist in the DOM, which only covers individual sliders,
+    // not overall workflow (single track vs Section Split vs Stem Mastering)
+    // or Stem-Mastering-only concepts like Master Bus/MR/TV Mix/Acapella that
+    // don't live on a .band-card at all.
+    const tr0 = T[currentLang] || T.en;
+    const guideWrap = doc.createElement('div');
+    guideWrap.innerHTML = tr0.guideHtml || T.en.guideHtml || '';
+    body.appendChild(guideWrap);
+    const controlsHr = doc.createElement('hr');
+    body.appendChild(controlsHr);
+    const controlsHeading = doc.createElement('h2');
+    controlsHeading.textContent = tr0.glossaryControlsHeading || T.en.glossaryControlsHeading;
+    body.appendChild(controlsHeading);
     collectAllBandCards().forEach(card=>{
       const titleEl = card.querySelector('.band-title');
       const descEl = card.querySelector('.band-desc');
       if(!titleEl || !descEl || !descEl.textContent.trim()) return;
-      const h = doc.createElement('h2'); h.textContent = titleEl.textContent.trim();
+      const h = doc.createElement('h3'); h.textContent = titleEl.textContent.trim();
       const p = doc.createElement('p'); p.textContent = descEl.textContent.trim();
       const hr = doc.createElement('hr');
       body.appendChild(h); body.appendChild(p); body.appendChild(hr);
@@ -4516,7 +5155,172 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     };
   }
 
+  // ---- Stem Mastering render engine. Kept as a fully separate function
+  // (rather than branching inside renderMaster() the way Section Split
+  // does) specifically so the existing single-file renderMaster() body
+  // below is never touched when stems aren't in play — see the one-line
+  // guard at the top of renderMaster(). Signal flow per active stem: EQ
+  // 8-band -> Saturation -> De-Harsher -> Width -> Intensity dry/wet, all
+  // using that stem's own captureStemState() snapshot; every stem's output
+  // sums into one busInput, which then runs through the shared Master Bus
+  // (Bass Protect ∥ Compressor -> Makeup -> bus Saturation -> Limiter) —
+  // read straight from the live sliders via computeEffectiveParams(null)
+  // since those cards are never swapped per stem (see STEM_BUS_KEYS above).
+  // `excludeSlotIds` lets the download-variant buttons (Master/MR/TV
+  // Mix/Acapella) reuse this same function with different slot subsets. ----
+  async function renderMasterStems(excludeSlotIds){
+    excludeSlotIds = excludeSlotIds || [];
+    if(activeStemSlotId) stemSlots[activeStemSlotId].settings = captureStemState();
+    const activeSlots = STEM_SLOT_ORDER.filter(id=> stemSlots[id] && stemSlots[id].buffer && !excludeSlotIds.includes(id));
+    if(activeSlots.length === 0) return null;
+
+    const length = Math.max(...activeSlots.map(id=> stemSlots[id].buffer.length));
+    const numberOfChannels = Math.max(...activeSlots.map(id=> stemSlots[id].buffer.numberOfChannels));
+    const sampleRate = stemSlots[activeSlots[0]].buffer.sampleRate;
+    const offlineCtx = new OfflineAudioContext(numberOfChannels, length, sampleRate);
+    const busInput = offlineCtx.createGain();
+    const duckGains = {}; // one per active slot — sits between that slot's stemSum and busInput so the sidechain (below) has something to modulate
+
+    activeSlots.forEach(id=>{
+      const e = computeEffectiveParams(stemSlots[id].settings);
+      const src = offlineCtx.createBufferSource(); src.buffer = stemSlots[id].buffer;
+
+      const lo = offlineCtx.createBiquadFilter(); lo.type='lowshelf'; lo.frequency.value=e.lowFreq; lo.gain.value=e.lowGain;
+      const subO = offlineCtx.createBiquadFilter(); subO.type='peaking'; subO.frequency.value=60; subO.Q.value=1.0; subO.gain.value=e.subGain;
+      const bassO = offlineCtx.createBiquadFilter(); bassO.type='peaking'; bassO.frequency.value=150; bassO.Q.value=1.0; bassO.gain.value=e.bassGain;
+      const lowmidO = offlineCtx.createBiquadFilter(); lowmidO.type='peaking'; lowmidO.frequency.value=400; lowmidO.Q.value=1.0; lowmidO.gain.value=e.lowmidGain;
+      const mid = offlineCtx.createBiquadFilter(); mid.type='peaking'; mid.frequency.value=e.midFreq; mid.Q.value=e.midQ; mid.gain.value=e.midGain;
+      const himidO = offlineCtx.createBiquadFilter(); himidO.type='peaking'; himidO.frequency.value=2500; himidO.Q.value=1.0; himidO.gain.value=e.himidGain;
+      const presenceO = offlineCtx.createBiquadFilter(); presenceO.type='peaking'; presenceO.frequency.value=6000; presenceO.Q.value=1.0; presenceO.gain.value=e.presenceGain;
+      const hi = offlineCtx.createBiquadFilter(); hi.type='highshelf'; hi.frequency.value=e.highFreq; hi.gain.value=e.highGain;
+
+      const satPreO = offlineCtx.createGain(); satPreO.gain.value = 1 + e.satAmount*2;
+      const satShaperO = offlineCtx.createWaveShaper(); satShaperO.oversample='4x'; satShaperO.curve = buildSaturationCurve(e.satAmount);
+      const satPostO = offlineCtx.createGain(); satPostO.gain.value = 1/(1 + e.satAmount*0.6);
+      const satDryO = offlineCtx.createGain(); satDryO.gain.value = 1 - e.satMix;
+      const satWetO = offlineCtx.createGain(); satWetO.gain.value = e.satMix;
+      const satSumO = offlineCtx.createGain();
+
+      const deHpO = offlineCtx.createBiquadFilter(); deHpO.type='highpass'; deHpO.frequency.value=e.deFreq; deHpO.Q.value=0.7;
+      const deLpO = offlineCtx.createBiquadFilter(); deLpO.type='lowpass'; deLpO.frequency.value=e.deFreq; deLpO.Q.value=0.7;
+      const deCompO = offlineCtx.createDynamicsCompressor();
+      deCompO.threshold.value=e.deThresh; deCompO.ratio.value=e.deRatio;
+      deCompO.attack.value=0.005; deCompO.release.value=0.1; deCompO.knee.value=6;
+      const deSumO = offlineCtx.createGain();
+
+      // Width per-stem — moved ahead of the shared bus (rather than after
+      // it, where single-file renderMaster() puts it). This is the actual
+      // point of the whole feature: each stem gets its own stereo image
+      // instead of one Width setting affecting the whole mix uniformly.
+      const wSplit = offlineCtx.createChannelSplitter(2);
+      const wMidL = offlineCtx.createGain(); wMidL.gain.value=0.5;
+      const wMidR = offlineCtx.createGain(); wMidR.gain.value=0.5;
+      const wMid = offlineCtx.createGain();
+      const wSideL = offlineCtx.createGain(); wSideL.gain.value=0.5;
+      const wSideR = offlineCtx.createGain(); wSideR.gain.value=-0.5;
+      const wSide = offlineCtx.createGain();
+      const wPos = offlineCtx.createGain(); wPos.gain.value = e.width;
+      const wNeg = offlineCtx.createGain(); wNeg.gain.value = -e.width;
+      const wMerge = offlineCtx.createChannelMerger(2);
+
+      const dry = offlineCtx.createGain(); dry.gain.value = e.dryMix;
+      const wet = offlineCtx.createGain(); wet.gain.value = e.wetMix;
+      const stemSum = offlineCtx.createGain();
+
+      src.connect(dry); dry.connect(stemSum);
+      src.connect(lo); lo.connect(subO); subO.connect(bassO); bassO.connect(lowmidO); lowmidO.connect(mid); mid.connect(himidO); himidO.connect(presenceO); presenceO.connect(hi);
+      hi.connect(satDryO); hi.connect(satPreO);
+      satPreO.connect(satShaperO); satShaperO.connect(satPostO); satPostO.connect(satWetO);
+      satDryO.connect(satSumO); satWetO.connect(satSumO);
+      satSumO.connect(deHpO); satSumO.connect(deLpO);
+      deHpO.connect(deCompO); deCompO.connect(deSumO); deLpO.connect(deSumO);
+      deSumO.connect(wSplit);
+      wSplit.connect(wMidL,0); wSplit.connect(wMidR,1); wMidL.connect(wMid); wMidR.connect(wMid);
+      wSplit.connect(wSideL,0); wSplit.connect(wSideR,1); wSideL.connect(wSide); wSideR.connect(wSide);
+      wSide.connect(wPos); wSide.connect(wNeg);
+      wMid.connect(wMerge,0,0); wPos.connect(wMerge,0,0);
+      wMid.connect(wMerge,0,1); wNeg.connect(wMerge,0,1);
+      wMerge.connect(wet); wet.connect(stemSum);
+      const duckGain = offlineCtx.createGain(); duckGain.gain.value = 1;
+      stemSum.connect(duckGain); duckGain.connect(busInput);
+      duckGains[id] = duckGain;
+      src.start(0);
+    });
+
+    // ---- Sidechain Duck ("pumping"): a real audio-rate sidechain, not a
+    // tempo guess. A second, silent BufferSource plays the trigger stem's
+    // own raw audio (not its mastered chain — we want its natural
+    // transients as the key signal) through rectify (WaveShaper abs) ->
+    // lowpass (acts as an envelope follower — the "Release" control is
+    // literally that filter's cutoff) -> invert+scale, and that signal
+    // connects straight into every OTHER stem's duckGain.gain AudioParam.
+    // Web Audio sums an AudioParam's intrinsic .value with whatever's
+    // connected into it, so duckGain ends up at (1 - amount*envelope) in
+    // real time, sample-accurate, synced to the trigger's actual sound. ----
+    const duckEnabled = document.getElementById('duckEnable').checked;
+    const duckTriggerId = document.getElementById('duckTriggerSelect').value;
+    if(duckEnabled && duckGains[duckTriggerId]){
+      const duckAmount = val('duckAmount')/100;
+      const releaseMs = val('duckRelease');
+      const cutoffHz = Math.max(1, 1000/releaseMs);
+      const envSrc = offlineCtx.createBufferSource(); envSrc.buffer = stemSlots[duckTriggerId].buffer;
+      const rectify = offlineCtx.createWaveShaper(); rectify.curve = buildRectifyCurve();
+      const envelope = offlineCtx.createBiquadFilter(); envelope.type='lowpass'; envelope.frequency.value = cutoffHz; envelope.Q.value = 0.707;
+      const invertScale = offlineCtx.createGain(); invertScale.gain.value = -duckAmount;
+      envSrc.connect(rectify); rectify.connect(envelope); envelope.connect(invertScale);
+      activeSlots.forEach(id=>{
+        if(id === duckTriggerId) return; // the trigger doesn't duck itself
+        invertScale.connect(duckGains[id].gain);
+      });
+      envSrc.start(0);
+    }
+
+    // ---- shared Master Bus: Bass Protect ∥ Compressor -> Makeup -> bus
+    // Saturation (glue) -> Limiter. Bus params come straight from the live
+    // sliders (computeEffectiveParams(null) === val()), since these cards
+    // are never swapped per stem tab. ----
+    const busE = computeEffectiveParams(null);
+    const bassLpO = offlineCtx.createBiquadFilter(); bassLpO.type='lowpass'; bassLpO.Q.value=0.7; bassLpO.frequency.value=busE.bassFreq;
+    const bassHpO = offlineCtx.createBiquadFilter(); bassHpO.type='highpass'; bassHpO.Q.value=0.7; bassHpO.frequency.value=busE.bassFreq;
+    const bassCompO = offlineCtx.createDynamicsCompressor();
+    bassCompO.threshold.value=busE.bassThresh; bassCompO.ratio.value=busE.bassRatio;
+    bassCompO.attack.value=busE.bassAttack; bassCompO.release.value=busE.bassRelease; bassCompO.knee.value=6;
+    const bassSumO = offlineCtx.createGain();
+
+    const cp = offlineCtx.createDynamicsCompressor();
+    cp.threshold.value=busE.thresh; cp.ratio.value=busE.ratio;
+    cp.attack.value=busE.attack; cp.release.value=busE.release; cp.knee.value=6;
+    const mk = offlineCtx.createGain(); mk.gain.value = busE.makeupGain;
+
+    const busSatAmount = val('busSatAmount')/100;
+    const busSatOn = document.getElementById('busSatEnable') ? document.getElementById('busSatEnable').checked : true;
+    const busSatMix = busSatOn ? val('busSatMix')/100 : 0;
+    const busSatPre = offlineCtx.createGain(); busSatPre.gain.value = 1 + busSatAmount*2;
+    const busSatShaper = offlineCtx.createWaveShaper(); busSatShaper.oversample='4x'; busSatShaper.curve = buildSaturationCurve(busSatAmount);
+    const busSatPost = offlineCtx.createGain(); busSatPost.gain.value = 1/(1 + busSatAmount*0.6);
+    const busSatDry = offlineCtx.createGain(); busSatDry.gain.value = 1 - busSatMix;
+    const busSatWet = offlineCtx.createGain(); busSatWet.gain.value = busSatMix;
+    const busSatSum = offlineCtx.createGain();
+
+    const lim = offlineCtx.createDynamicsCompressor();
+    lim.threshold.value = busE.ceil;
+    lim.attack.value=0.001; lim.release.value=0.08; lim.knee.value=0; lim.ratio.value=20;
+
+    busInput.connect(bassLpO); busInput.connect(bassHpO);
+    bassLpO.connect(bassCompO); bassCompO.connect(bassSumO);
+    bassHpO.connect(cp); cp.connect(bassSumO);
+    bassSumO.connect(mk);
+    mk.connect(busSatDry); mk.connect(busSatPre);
+    busSatPre.connect(busSatShaper); busSatShaper.connect(busSatPost); busSatPost.connect(busSatWet);
+    busSatDry.connect(busSatSum); busSatWet.connect(busSatSum);
+    busSatSum.connect(lim);
+    lim.connect(offlineCtx.destination);
+
+    return offlineCtx.startRendering();
+  }
+
   async function renderMaster(){
+    if(stemModeEnabled) return renderMasterStems();
     const offlineCtx = new OfflineAudioContext(audioBuffer.numberOfChannels, audioBuffer.length, audioBuffer.sampleRate);
     const src = offlineCtx.createBufferSource(); src.buffer = audioBuffer;
 
@@ -5492,63 +6296,95 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   // this used to do unconditionally). Falls back to that <a download> only
   // on browsers without the picker API, or if the person's browser rejects
   // the picker for a reason other than them cancelling it. ----
+  // ---- shared by the main Download button and the stem download variants
+  // (MR/TV Mix/Acapella) below — encodes a rendered buffer per the current
+  // format controls and saves it via the native picker (falling back to a
+  // plain <a download> on browsers without showSaveFilePicker). Extracted
+  // out of the dlBtn handler verbatim, no behavior change for it. ----
+  async function encodeAndSaveAudioBuffer(rendered, suggestedNameBase){
+    let blob, ext, mime;
+    if(downloadFormat === 'wav'){
+      const targetRate = document.getElementById('sampleRateSelect').value;
+      if(targetRate !== 'original' && parseInt(targetRate) !== rendered.sampleRate){
+        rendered = await resampleBuffer(rendered, parseInt(targetRate));
+      }
+      const bitDepth = parseInt(document.getElementById('bitDepthSelect').value);
+      blob = audioBufferToWav(rendered, bitDepth);
+      ext = 'wav'; mime = 'audio/wav';
+    } else {
+      if(typeof lamejs === 'undefined'){
+        alert('The MP3 encoder did not load correctly in this browser. Try WAV instead.');
+        return;
+      }
+      const kbps = parseInt(document.getElementById('mp3BitrateSelect').value);
+      blob = audioBufferToMp3(rendered, kbps);
+      ext = 'mp3'; mime = 'audio/mpeg';
+    }
+
+    const suggestedName = `${suggestedNameBase}.${ext}`;
+    if(window.showSaveFilePicker){
+      try{
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{ description: ext.toUpperCase()+' audio', accept: {[mime]: ['.'+ext]} }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        return; // saved via the native dialog — skip the <a download> fallback below
+      }catch(e){
+        if(e && e.name === 'AbortError') return; // user cancelled the Save dialog — don't fall back to auto-download
+        console.log('showSaveFilePicker failed, falling back to download:', e);
+      }
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = suggestedName;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   document.getElementById('dlBtn').addEventListener('click', async ()=>{
     if(!audioBuffer) return;
     const btn = document.getElementById('dlBtn');
     const prevLabel = btn.textContent;
     btn.disabled = true; btn.textContent = T[currentLang].rendering;
     try {
-      let rendered = masteredBuffer || await renderMaster();
-
+      const rendered = masteredBuffer || await renderMaster();
       const baseName = fileNameLabel.textContent.replace(/\.[^.]+$/,'');
-      let blob, ext, mime;
-
-      if(downloadFormat === 'wav'){
-        const targetRate = document.getElementById('sampleRateSelect').value;
-        if(targetRate !== 'original' && parseInt(targetRate) !== rendered.sampleRate){
-          rendered = await resampleBuffer(rendered, parseInt(targetRate));
-        }
-        const bitDepth = parseInt(document.getElementById('bitDepthSelect').value);
-        blob = audioBufferToWav(rendered, bitDepth);
-        ext = 'wav'; mime = 'audio/wav';
-      } else {
-        if(typeof lamejs === 'undefined'){
-          alert('The MP3 encoder did not load correctly in this browser. Try WAV instead.');
-          btn.disabled = false; btn.textContent = prevLabel;
-          return;
-        }
-        const kbps = parseInt(document.getElementById('mp3BitrateSelect').value);
-        blob = audioBufferToMp3(rendered, kbps);
-        ext = 'mp3'; mime = 'audio/mpeg';
-      }
-
-      const suggestedName = `mastered_${baseName}.${ext}`;
-      if(window.showSaveFilePicker){
-        try{
-          const handle = await window.showSaveFilePicker({
-            suggestedName,
-            types: [{ description: ext.toUpperCase()+' audio', accept: {[mime]: ['.'+ext]} }]
-          });
-          const writable = await handle.createWritable();
-          await writable.write(blob);
-          await writable.close();
-          return; // saved via the native dialog — skip the <a download> fallback below
-        }catch(e){
-          if(e && e.name === 'AbortError') return; // user cancelled the Save dialog — don't fall back to auto-download
-          console.log('showSaveFilePicker failed, falling back to download:', e);
-        }
-      }
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = suggestedName;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
+      await encodeAndSaveAudioBuffer(rendered, `mastered_${baseName}`);
     } finally {
       btn.disabled = false; btn.textContent = prevLabel;
     }
   });
+
+  // ---- Stem download variants: same renderMasterStems() pipeline as the
+  // main Master, just summing a different subset of the 5 slots. All four
+  // (including Acapella) still run through the shared Master Bus for
+  // simplicity/consistency — a deliberate simplification rather than an
+  // oversight (see AI-Mastering-Tool session notes). ----
+  function wireStemVariantDownloadBtn(btnId, excludeSlotIds, nameSuffix){
+    const btn = document.getElementById(btnId);
+    if(!btn) return;
+    btn.addEventListener('click', async ()=>{
+      if(!stemModeEnabled) return;
+      const prevLabel = btn.textContent;
+      btn.disabled = true; btn.textContent = T[currentLang].rendering;
+      try{
+        const rendered = await renderMasterStems(excludeSlotIds);
+        if(!rendered){ alert('Nothing left to render — every stem needed for this variant is empty.'); return; }
+        const baseName = fileNameLabel.textContent.replace(/\.[^.]+$/,'').replace(/\s+/g,'_');
+        await encodeAndSaveAudioBuffer(rendered, `${baseName}_${nameSuffix}`);
+      } finally {
+        btn.disabled = false; btn.textContent = prevLabel;
+      }
+    });
+  }
+  wireStemVariantDownloadBtn('dlMrBtn', ['vocal'], 'MR');
+  wireStemVariantDownloadBtn('dlTvMixBtn', ['vocal'], 'TVMix'); // same exclusion as MR — TV Mix relies on backing vocals living in Others/Extra, not the Vocal slot
+  wireStemVariantDownloadBtn('dlAcapellaBtn', STEM_SLOT_ORDER.filter(id=> id !== 'vocal'), 'Acapella');
 
   // ---- Download Bundle: audio + Settings + Log, all with the same name.
   //
@@ -5967,6 +6803,31 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       splitCopyHint: 'Overwrites Section 2 with whatever\'s currently set in Section 1 — a quick way to give Section 2 a starting point instead of blank EQ/Compressor settings. You can still tweak Section 2 afterward.',
       splitDragHint: 'Tip: drag the vertical marker on the Original/Master waveforms below to set the split point.',
       splitStatusText: (t, cf) => `Split at ${t}, crossfade ${cf}s`,
+      stemsDropBig: 'Upload stems',
+      stemsDropSmall: 'Vocal / Bass / Drums / Extra — pick a folder or select files below',
+      stemsPickFolderBtn: '📁 Pick a folder',
+      stemsPickFilesBtn: '🎵 Pick files',
+      stemsHeroHint: 'Master each stem independently, then sum them into one glued-together master.',
+      panelStems: 'Stem Mastering',
+      descStems: 'Each stem below gets its own independent EQ / Compressor / Saturation / De-Harsher / Width, then everything sums through a shared Master Bus (compression + saturation) for glue. Switch tabs to edit a different stem — the Mixing Desk below always reflects whichever tab is active.',
+      stemSlotVocal: 'Vocal', stemSlotBass: 'Bass', stemSlotDrums: 'Drums & Percussion', stemSlotExtra: 'Extra', stemSlotOthers: 'Others',
+      btnPlayFullMix: '🔊 Play Full Mix',
+      stemsFullMixHint: 'Plays every stem summed together, unprocessed — a quick reference for what the raw combined song sounds like.',
+      panelMasterBus: 'Master Bus (shared)',
+      masterBusHint: 'The Bass Protect / Compressor / Loudness cards below always control this one shared bus, applied once after every stem is summed — they don\'t switch per stem tab like EQ/Saturation/De-Harsher/Width do.',
+      busSatEnableLabel: 'Bus Saturation (glue)', busSatDriveLabel: 'Drive %', busSatMixLabel: 'Mix %',
+      busSatHint: 'A light layer of saturation across the whole combined mix — this is what glues separately-mastered stems into one cohesive-sounding master, the same role Bass Protect/Compressor play at this stage.',
+      duckEnableLabel: 'Sidechain Duck (pumping)', duckTriggerLabel: 'Trigger stem', duckAmountLabel: 'Amount %', duckReleaseLabel: 'Release (ms)',
+      duckHint: 'Ducks every other stem in sync with the trigger stem\'s actual sound (e.g. pick Drums to make the other stems "pump" with the beat) — real audio-rate sidechain, not a tempo guess. Off by default — enable and dial in Amount/Release by ear.',
+      stemsErrNoneReadable: (names) => `⚠ Couldn't read any of the dropped files as audio (${names}). Make sure they're WAV/MP3/M4A files.`,
+      stemsErrSomeSkipped: (count, names) => `⚠ ${count} file(s) couldn't be read and were skipped: ${names}. The rest loaded normally.`,
+      stemsErrDurationMismatch: (shortName, shortDur, longName, longDur) => `⚠ Stem lengths don't match (${shortName}: ${shortDur} vs ${longName}: ${longDur}) — they should normally share one timeline. Double-check these are stems from the same export.`,
+      stemsAddToExtraBtn: '+ Add from Others',
+      stemsAddToExtraPlaceholder: '— choose a file —',
+      btnDlMr: '🎤 Download MR / Instrumental (no vocal)',
+      btnDlTvMix: '📺 Download TV Mix (no lead vocal, keeps backing)',
+      btnDlAcapella: '🎙 Download Acapella (vocal only)',
+      stemVariantsHint: 'These reuse the same per-stem mastering above, just summing a different subset of stems — no extra rendering setup needed.',
       btnDlBundle: '📦 Download with Settings + Log (pick a folder)', dlBundleNote: 'Type a name, then pick one folder — the audio file, Settings file, and Log file all save there together with that name. Needs Chrome or Edge.', dlBundleSaved: '✓ Saved 3 files',
       dlBundleFolderHint: '⚠ Your browser won\'t let you pick "Downloads", "Documents", "Desktop", or a drive\'s top level directly (blocked for safety) — create or choose a subfolder inside one of those instead.',
       bundleModalTitle: 'Save with Settings + Log', bundleModalSub: 'Choose a folder and a name — the audio file, Settings file, and Log file will all be saved there together.',
@@ -6045,7 +6906,46 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       btnPopoutMonitor: '⇱ Pop out',
       btnPopoutEq: '⇱ Pop out EQ', btnPopoutDesk: '⇱ Pop out Dynamics', btnShowAllPopouts: '⇈ Show All',
       chipEq: 'EQ', chipDesk: 'Dynamics', chipMonitor: 'Live Monitor',
-      btnGlossary: '❓ Glossary',
+      btnGlossary: '📖 Guide & Glossary',
+      glossaryControlsHeading: '🎛 Control-by-Control Reference',
+      guideHtml: `<h2>📖 How to Use</h2>
+<h3>A. Master one finished track</h3>
+<p>Upload a single WAV/MP3/M4A file in the top box. Pick a Genre/Vibe tag or a Mastering Direction preset to auto-fill the EQ and Compressor, then fine-tune anything in the Mixing Desk below — every card shows live numbers and a Gain Reduction meter so you can see exactly what a setting is doing, not just guess by ear. Click <strong>Run Mastering</strong> to preview, <strong>Final Mastering</strong> once you're happy, then download.</p>
+<h3>B. Change character partway through the song (Section Split)</h3>
+<p>Turn this on when a song's mood shifts partway through (a quiet verse building into a big chorus, for example) and you want completely different EQ/Compressor/Width/Vibe settings before and after that point, smoothly crossfaded. Section Split and Stem Mastering can't run at the same time — turning one on turns the other off.</p>
+<h3>C. Master each stem separately (Stem Mastering)</h3>
+<ol>
+<li>Click <strong>📁 Pick a folder</strong> and choose the folder containing your stem files (vocal, bass, drums, etc.) — every audio file inside uploads automatically. If you'd rather pick specific files instead of a whole folder, use <strong>🎵 Pick files</strong> and multi-select them (Ctrl/Cmd-click) in the file dialog.</li>
+<li>Files sort automatically into Vocal / Bass / Drums & Percussion / Others by filename keywords. Extra never fills automatically — see Terminology below.</li>
+<li>Click the tabs at the top (Vocal / Bass / Drums & Percussion / Extra / Others) to select a stem and give it its own EQ / Saturation / De-Harsher / Width. The Mixing Desk below always reflects whichever tab is active.</li>
+<li>Use the <strong>Master Bus (Shared)</strong> section for Bass Protect / Compressor / Loudness / Bus Saturation / Sidechain Duck — these apply once, after every stem is summed, not per stem.</li>
+<li><strong>"🔊 Play Full Mix"</strong> plays every loaded stem summed together with no processing — a quick reference for the raw song.</li>
+<li>Run/Final Mastering processes each stem through its own chain, sums them, then runs the combined signal through the Master Bus.</li>
+<li>The download panel offers Master plus three variants — MR/Instrumental, TV Mix, Acapella — all fully mastered, just with different stems included in the sum.</li>
+</ol>
+<h3>Common points of confusion</h3>
+<ul>
+<li>Extra doesn't fill automatically. Use the <strong>"+ Add from Others"</strong> button on the Extra row (or the dropdown next to any file chip) to move a specific file there.</li>
+<li>Section Split and Stem Mastering are mutually exclusive — you can only use one at a time.</li>
+</ul>
+<h2>📚 Terminology</h2>
+<ul>
+<li><strong>Vocal / Bass / Drums & Percussion</strong> — the three core stem slots, auto-assigned by filename keyword.</li>
+<li><strong>Extra</strong> — an optional slot that's never auto-filled; move a stem here manually when you want to treat it on its own (a prominent guitar solo, for example).</li>
+<li><strong>Others</strong> — catches everything that didn't match a keyword (backing vocals, synths, brass, etc.).</li>
+<li><strong>Master Bus (Shared)</strong> — the shared compressor/limiter stage every stem passes through once, after summing. This is what creates "glue."</li>
+<li><strong>Bus Saturation</strong> — harmonic saturation on the Master Bus that helps the summed stems read as one cohesive recording instead of separate layers.</li>
+<li><strong>Sidechain Duck</strong> — a "pumping" effect: whenever the trigger stem (usually Drums) hits, the other stems duck down briefly and spring back.</li>
+<li><strong>Play Full Mix</strong> — plays all loaded stems summed together with no processing, as a reference.</li>
+<li><strong>MR / Instrumental</strong> — everything except the Vocal slot; a karaoke/backing-track download.</li>
+<li><strong>TV Mix</strong> — excludes only the lead vocal; backing vocals (living in Others) stay in.</li>
+<li><strong>Acapella</strong> — the Vocal slot only, fully mastered on its own.</li>
+<li><strong>Bass Protect</strong> — compresses the low end separately, before the main Compressor, so loud hits elsewhere don't chop up bass/808 sustain.</li>
+<li><strong>De-Harsher</strong> — compresses only the band above a chosen frequency, taming harsh cymbals/sibilance without touching the rest.</li>
+<li><strong>Gain Reduction (GR) meter</strong> — shows in real time how much a compressor/limiter is currently turning the signal down.</li>
+<li><strong>LUFS / True Peak / Crest Factor / LRA</strong> — loudness, peak, and dynamics readings in Live Monitor, useful for comparing against platform targets (YouTube is roughly -14 LUFS).</li>
+<li><strong>Goniometer</strong> — the circular display showing left/right phase and stereo image in real time.</li>
+</ul>`,
       monPoppedOutNote: 'Popped out to a separate window — close that window to bring this panel back here.',
       waveLabelSpectrum: 'Spectrum (averaged across the track)',
       waveLabelOriginal: 'Original waveform', waveLabelMaster: 'Master waveform',
@@ -6147,6 +7047,31 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       splitCopyHint: '지금 구간 1에 설정된 값을 그대로 구간 2에 덮어써요 — 구간 2를 빈 EQ/컴프레서 상태에서 시작하지 않게 해주는 빠른 방법이에요. 복사한 뒤에도 구간 2는 자유롭게 다시 조정할 수 있어요.',
       splitDragHint: '팁: 아래 Original/Master 파형 위의 세로 마커를 드래그해서 분할 지점을 잡을 수 있어요.',
       splitStatusText: (t, cf) => `${t} 지점에서 분할, 크로스페이드 ${cf}초`,
+      stemsDropBig: '스템 업로드',
+      stemsDropSmall: 'Vocal / Bass / Drums / Extra — 아래에서 폴더나 파일을 선택하세요',
+      stemsPickFolderBtn: '📁 폴더 선택',
+      stemsPickFilesBtn: '🎵 파일 선택',
+      stemsHeroHint: '스템마다 따로 마스터링한 뒤, 하나로 합쳐서 글루감 있는 마스터를 만들어요.',
+      panelStems: '스템 마스터링',
+      descStems: '아래 각 스템은 독립된 EQ / 컴프레서 / Saturation / De-Harsher / Width를 가져요. 그다음 전부 합쳐진 신호가 공용 Master Bus(컴프레션+새추레이션)를 통과해서 글루감을 만들어요. 탭을 눌러 다른 스템을 편집할 수 있고, 아래 믹싱데스크는 항상 지금 선택된 탭을 반영해요.',
+      stemSlotVocal: 'Vocal', stemSlotBass: 'Bass', stemSlotDrums: '드럼 & 퍼커션', stemSlotExtra: 'Extra', stemSlotOthers: 'Others',
+      btnPlayFullMix: '🔊 전체 합본 재생',
+      stemsFullMixHint: '모든 스템을 무가공으로 합쳐서 재생해요 — 원곡 전체가 어떤 느낌인지 빠르게 참고할 때 써요.',
+      panelMasterBus: 'Master Bus (공유)',
+      masterBusHint: '아래 Bass Protect / Compressor / Loudness 카드는 항상 이 하나의 공유 버스를 조절해요 — 모든 스템이 합쳐진 뒤 딱 한 번 적용되고, EQ/Saturation/De-Harsher/Width처럼 스템 탭마다 바뀌지 않아요.',
+      busSatEnableLabel: '버스 Saturation (글루)', busSatDriveLabel: 'Drive %', busSatMixLabel: 'Mix %',
+      busSatHint: '합쳐진 믹스 전체에 살짝 얹는 새추레이션이에요 — 따로따로 마스터링된 스템들을 하나로 뭉치게 해주는 역할로, 이 단계의 Bass Protect/Compressor와 같은 역할이에요.',
+      duckEnableLabel: '사이드체인 덕킹 (펌핑)', duckTriggerLabel: '트리거 스템', duckAmountLabel: '강도 %', duckReleaseLabel: '릴리즈 (ms)',
+      duckHint: '트리거로 지정한 스템의 실제 소리에 맞춰 다른 스템들을 순간적으로 눌러줘요(예: Drums를 고르면 다른 스템들이 비트에 맞춰 "펌핑"돼요) — 템포 추정이 아니라 진짜 오디오 신호를 따라가는 사이드체인이에요. 기본은 꺼짐 — 켠 다음 귀로 들으면서 강도/릴리즈를 맞춰보세요.',
+      stemsErrNoneReadable: (names) => `⚠ 드롭한 파일을 오디오로 읽을 수 없었어요 (${names}). WAV/MP3/M4A 파일이 맞는지 확인해주세요.`,
+      stemsErrSomeSkipped: (count, names) => `⚠ ${count}개 파일을 읽지 못해서 건너뛰었어요: ${names}. 나머지는 정상적으로 불러와졌어요.`,
+      stemsErrDurationMismatch: (shortName, shortDur, longName, longDur) => `⚠ 스템 길이가 서로 안 맞아요 (${shortName}: ${shortDur} vs ${longName}: ${longDur}) — 보통은 같은 타임라인을 공유해야 해요. 같은 곳에서 뽑은 스템이 맞는지 확인해보세요.`,
+      stemsAddToExtraBtn: '+ Others에서 가져오기',
+      stemsAddToExtraPlaceholder: '— 파일 선택 —',
+      btnDlMr: '🎤 MR / 반주 다운로드 (보컬 제외)',
+      btnDlTvMix: '📺 TV Mix 다운로드 (리드보컬만 제외, 백보컬 유지)',
+      btnDlAcapella: '🎙 Acapella 다운로드 (보컬만)',
+      stemVariantsHint: '위에서 이미 만든 스템별 마스터링을 그대로 재사용해서, 스템 조합만 다르게 합쳐요 — 추가 설정이 필요 없어요.',
       btnDlBundle: '📦 설정+로그와 함께 다운로드 (폴더 선택)', dlBundleNote: '이름을 입력하고 폴더 하나만 고르면, 음원 파일·Settings 파일·Log 파일이 그 이름으로 한 번에 저장돼요, 크롬이나 엣지 브라우저 필요해요.', dlBundleSaved: '✓ 파일 3개 저장됨',
       dlBundleFolderHint: '⚠ "다운로드", "문서", "바탕화면", 드라이브 최상위 폴더는 브라우저가 보안상 직접 선택하지 못하게 막아요 — 그 안에 새 폴더를 만들거나 하위 폴더를 골라주세요.',
       bundleModalTitle: '설정+로그와 함께 저장', bundleModalSub: '폴더와 이름을 정하면, 음원 파일·Settings 파일·Log 파일이 그 안에 함께 저장돼요.',
@@ -6225,7 +7150,46 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       btnPopoutMonitor: '⇱ 새 창으로',
       btnPopoutEq: '⇱ EQ 새 창으로', btnPopoutDesk: '⇱ 다이내믹스 새 창으로', btnShowAllPopouts: '⇈ 전부 보이기',
       chipEq: 'EQ', chipDesk: '다이내믹스', chipMonitor: 'Live Monitor',
-      btnGlossary: '❓ 용어 설명',
+      btnGlossary: '📖 사용법 & 용어 설명',
+      glossaryControlsHeading: '🎛 컨트롤별 상세 설명',
+      guideHtml: `<h2>📖 사용 방법</h2>
+<h3>A. 완성된 음원 파일 하나 마스터링하기</h3>
+<p>상단 박스에 wav/mp3/m4a 파일 하나를 올리세요. Genre/Vibe 태그나 Mastering Direction 프리셋을 고르면 EQ와 Compressor가 자동으로 채워지고, 그 아래 Mixing Desk에서 원하는 대로 세부 조정할 수 있어요 — 모든 카드에 실시간 숫자와 게인 리덕션 미터가 붙어있어서, 귀로 짐작하지 않고 지금 설정이 실제로 뭘 하고 있는지 바로 확인할 수 있어요. <strong>Run Mastering</strong>으로 미리 들어보고, 만족하면 <strong>Final Mastering</strong>으로 확정한 뒤 다운로드하세요.</p>
+<h3>B. 곡 중간부터 느낌 바꾸기 (Section Split)</h3>
+<p>조용한 벌스에서 큰 후렴으로 넘어가는 것처럼, 곡 중간에 분위기가 바뀌는 지점이 있고 그 전후로 EQ/Compressor/Width/Vibe를 완전히 다르게, 부드럽게 크로스페이드하며 적용하고 싶을 때 켜세요. Section Split과 Stem Mastering은 동시에 켤 수 없어요 — 하나를 켜면 다른 하나는 자동으로 꺼져요.</p>
+<h3>C. 스템별로 따로 마스터링하기 (Stem Mastering)</h3>
+<ol>
+<li><strong>📁 폴더 선택</strong> 버튼을 눌러서, 보컬·베이스·드럼 같은 스템 파일들이 들어있는 폴더를 선택하세요 — 폴더 안의 모든 오디오 파일이 자동으로 올라가요. 폴더 전체가 아니라 원하는 파일만 고르고 싶다면 <strong>🎵 파일 선택</strong> 버튼으로 파일 여러 개를 한 번에 골라도 돼요(Ctrl/Cmd 클릭으로 다중 선택).</li>
+<li>파일명 키워드로 Vocal / Bass / Drums & Percussion / Others 슬롯에 자동으로 나뉘어 들어가요. Extra는 절대 자동으로 안 채워져요 — 아래 "용어 정리" 참고.</li>
+<li>상단 탭(Vocal / Bass / Drums & Percussion / Extra / Others)을 눌러서 스템을 하나씩 골라 각각 EQ / Saturation / De-Harsher / Width를 다르게 세팅하세요. 아래 Mixing Desk는 항상 지금 선택된 탭 기준으로 바뀌어요.</li>
+<li><strong>Master Bus (공유)</strong> 섹션에서 Bass Protect / Compressor / Loudness / 버스 Saturation / 사이드체인 덕킹을 세팅하세요 — 이건 스템마다가 아니라, 모든 스템이 합쳐진 뒤 딱 한 번만 적용되는 공용 설정이에요.</li>
+<li><strong>"🔊 Play Full Mix"</strong>는 지금까지 로드된 모든 스템을 가공 없이 그대로 합쳐서 들려주는 참고용 재생이에요.</li>
+<li>Run/Final Mastering을 누르면 각 스템이 자기 체인을 거친 뒤 합쳐지고, 그다음 합쳐진 신호가 Master Bus를 통과해요.</li>
+<li>다운로드 패널에서 Master 외에 MR/Instrumental, TV Mix, Acapella 세 가지 변형도 받을 수 있어요 — 전부 완전히 마스터링된 소리이고, 합산에 포함되는 스템만 다를 뿐이에요.</li>
+</ol>
+<h3>자주 헷갈리는 부분</h3>
+<ul>
+<li>Extra는 자동으로 안 채워져요. Extra 줄의 <strong>"+ Others에서 가져오기"</strong> 버튼(또는 파일 칩 옆 드롭다운)으로 원하는 파일을 직접 옮기세요.</li>
+<li>Section Split과 Stem Mastering은 동시에 쓸 수 없어요 — 둘 중 하나만 선택하세요.</li>
+</ul>
+<h2>📚 용어 정리</h2>
+<ul>
+<li><strong>Vocal / Bass / Drums & Percussion</strong> — 파일명 키워드로 자동 배정되는 핵심 3개 슬롯.</li>
+<li><strong>Extra</strong> — 자동으로 안 채워지는 선택 슬롯. 기타 솔로처럼 따로 다루고 싶은 스템이 있을 때 수동으로 옮겨 넣으세요.</li>
+<li><strong>Others</strong> — 위 키워드에 안 걸린 나머지 전부가 모이는 슬롯(백보컬, 신스, 브라스 등).</li>
+<li><strong>Master Bus (공유)</strong> — 모든 스템이 합쳐진 뒤 딱 한 번 통과하는 공용 컴프레서/리미터 단계. 이 단계가 "글루감"을 만들어요.</li>
+<li><strong>버스 Saturation</strong> — Master Bus에 살짝 얹는 배음 새추레이션. 따로따로 마스터링된 스템들을 하나로 뭉쳐 들리게 해줘요.</li>
+<li><strong>사이드체인 덕킹</strong> — "펌핑" 효과. 트리거로 지정한 스템(보통 Drums)이 칠 때마다 다른 스템들이 순간적으로 살짝 눌렸다가 다시 올라와요.</li>
+<li><strong>Play Full Mix</strong> — 로드된 모든 스템을 가공 없이 그대로 합쳐서 들어보는 참고용 재생.</li>
+<li><strong>MR / Instrumental</strong> — Vocal 슬롯을 제외한 전체. 노래방/반주용 다운로드예요.</li>
+<li><strong>TV Mix</strong> — 리드보컬만 제외하고, Others에 있는 백보컬은 그대로 남아있어요.</li>
+<li><strong>Acapella</strong> — Vocal 슬롯만 포함해서 그 자체로 완전히 마스터링한 다운로드.</li>
+<li><strong>Bass Protect</strong> — 저역만 메인 Compressor보다 먼저 따로 압축해서, 다른 소리의 큰 타격이 베이스/808 서스테인을 끊어먹지 않게 막아줘요.</li>
+<li><strong>De-Harsher</strong> — 지정한 주파수 위쪽만 골라서 압축해요. 심벌·치찰음처럼 거슬리는 부분만 눌러주고 나머지는 그대로 둬요.</li>
+<li><strong>게인 리덕션(GR) 미터</strong> — 지금 컴프레서/리미터가 신호를 얼마나 누르고 있는지 실시간으로 보여주는 막대.</li>
+<li><strong>LUFS / True Peak / Crest Factor / LRA</strong> — Live Monitor에 뜨는 라우드니스·피크·다이내믹 측정값. 유튜브 등 플랫폼 기준(대략 -14 LUFS)과 비교할 때 참고하세요.</li>
+<li><strong>고니오미터</strong> — 좌우 채널의 위상과 스테레오 이미지를 원형으로 실시간 표시하는 시각화.</li>
+</ul>`,
       monPoppedOutNote: '별도 창으로 분리됐어요 — 그 창을 닫으면 여기로 다시 돌아와요.',
       waveLabelSpectrum: '스펙트럼 (트랙 전체 평균)',
       waveLabelOriginal: '오리지널 파형', waveLabelMaster: '마스터 파형',
@@ -6327,6 +7291,31 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       splitCopyHint: 'Sobrescribe la Seccion 2 con lo que este puesto ahora en la Seccion 1 — una forma rapida de darle a la Seccion 2 un punto de partida en vez de EQ/Compresor vacios. Despues igual puedes ajustar la Seccion 2 libremente.',
       splitDragHint: 'Consejo: arrastra el marcador vertical en las formas de onda Original/Master de abajo para fijar el punto de division.',
       splitStatusText: (t, cf) => `Division en ${t}, crossfade de ${cf}s`,
+      stemsDropBig: 'Sube stems',
+      stemsDropSmall: 'Vocal / Bass / Drums / Extra — elige una carpeta o selecciona archivos abajo',
+      stemsPickFolderBtn: '📁 Elegir carpeta',
+      stemsPickFilesBtn: '🎵 Elegir archivos',
+      stemsHeroHint: 'Masteriza cada stem por separado y luego los suma en un master con glue cohesivo.',
+      panelStems: 'Masterizacion por Stems',
+      descStems: 'Cada stem de abajo tiene su propio EQ / Compresor / Saturacion / De-Harsher / Ancho independientes. Luego todo se suma y pasa por un Master Bus compartido (compresion + saturacion) para el glue. Cambia de pestana para editar otro stem — el Mixing Desk de abajo siempre refleja la pestana activa.',
+      stemSlotVocal: 'Vocal', stemSlotBass: 'Bass', stemSlotDrums: 'Bateria y Percusion', stemSlotExtra: 'Extra', stemSlotOthers: 'Otros',
+      btnPlayFullMix: '🔊 Reproducir Mezcla Completa',
+      stemsFullMixHint: 'Reproduce todos los stems sumados sin procesar — una referencia rapida de como suena la cancion combinada en crudo.',
+      panelMasterBus: 'Master Bus (compartido)',
+      masterBusHint: 'Las tarjetas de Bass Protect / Compresor / Loudness de abajo siempre controlan este unico bus compartido, aplicado una vez que se suman todos los stems — no cambian por pestana de stem como si lo hacen EQ/Saturacion/De-Harsher/Ancho.',
+      busSatEnableLabel: 'Saturacion de Bus (glue)', busSatDriveLabel: 'Drive %', busSatMixLabel: 'Mix %',
+      busSatHint: 'Una capa ligera de saturacion sobre toda la mezcla combinada — esto es lo que une stems masterizados por separado en un master con sonido cohesivo, el mismo rol que cumplen Bass Protect/Compresor en esta etapa.',
+      duckEnableLabel: 'Sidechain Duck (pumping)', duckTriggerLabel: 'Stem disparador', duckAmountLabel: 'Cantidad %', duckReleaseLabel: 'Release (ms)',
+      duckHint: 'Reduce el volumen de cada otro stem en sincronia con el sonido real del stem disparador (por ejemplo, elige Drums para que los demas stems "bombeen" con el ritmo) — es un sidechain real a nivel de audio, no una estimacion de tempo. Apagado por defecto — activalo y ajusta Cantidad/Release de oido.',
+      stemsErrNoneReadable: (names) => `⚠ No se pudo leer ninguno de los archivos como audio (${names}). Asegurate de que sean archivos WAV/MP3/M4A.`,
+      stemsErrSomeSkipped: (count, names) => `⚠ ${count} archivo(s) no se pudieron leer y se omitieron: ${names}. El resto se cargo normalmente.`,
+      stemsErrDurationMismatch: (shortName, shortDur, longName, longDur) => `⚠ Las duraciones de los stems no coinciden (${shortName}: ${shortDur} vs ${longName}: ${longDur}) — normalmente deberian compartir la misma linea de tiempo. Verifica que sean stems de la misma exportacion.`,
+      stemsAddToExtraBtn: '+ Añadir desde Others',
+      stemsAddToExtraPlaceholder: '— elige un archivo —',
+      btnDlMr: '🎤 Descargar MR / Instrumental (sin voz)',
+      btnDlTvMix: '📺 Descargar TV Mix (sin voz principal, mantiene coros)',
+      btnDlAcapella: '🎙 Descargar Acapella (solo voz)',
+      stemVariantsHint: 'Estas reutilizan la misma masterizacion por stem de arriba, solo sumando un subconjunto distinto de stems — sin configuracion extra de render.',
       btnDlBundle: '📦 Descargar con Ajustes + Registro (elegir carpeta)', dlBundleNote: 'Escribe un nombre y elige una carpeta — el audio, los Ajustes y el Registro se guardan ahí juntos con ese nombre. Requiere Chrome o Edge.', dlBundleSaved: '✓ 3 archivos guardados',
       dlBundleFolderHint: '⚠ Tu navegador no permite elegir directamente "Descargas", "Documentos", "Escritorio" ni la raíz de una unidad (bloqueado por seguridad) — crea o elige una subcarpeta dentro de una de ellas.',
       bundleModalTitle: 'Guardar con Ajustes + Registro', bundleModalSub: 'Elige una carpeta y un nombre — el audio, los Ajustes y el Registro se guardarán ahí juntos.',
@@ -6405,7 +7394,46 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       btnPopoutMonitor: '⇱ Ventana aparte',
       btnPopoutEq: '⇱ Separar EQ', btnPopoutDesk: '⇱ Separar Dinámica', btnShowAllPopouts: '⇈ Mostrar todas',
       chipEq: 'EQ', chipDesk: 'Dinámica', chipMonitor: 'Live Monitor',
-      btnGlossary: '❓ Glosario',
+      btnGlossary: '📖 Guía y Glosario',
+      glossaryControlsHeading: '🎛 Referencia de Controles',
+      guideHtml: `<h2>📖 Cómo usar</h2>
+<h3>A. Masterizar una sola pista terminada</h3>
+<p>Sube un archivo WAV/MP3/M4A en el recuadro superior. Elige una etiqueta de Genre/Vibe o un preset de Mastering Direction para rellenar automáticamente el EQ y el Compresor, y luego ajusta lo que quieras en el Mixing Desk de abajo — cada tarjeta muestra números en vivo y un medidor de reducción de ganancia (GR) para que veas exactamente qué está haciendo un ajuste, no solo lo adivines de oído. Haz clic en <strong>Run Mastering</strong> para previsualizar, y en <strong>Final Mastering</strong> cuando estés conforme, y luego descarga.</p>
+<h3>B. Cambiar el carácter a mitad de la canción (Section Split)</h3>
+<p>Actívalo cuando el ánimo de la canción cambia a mitad de camino (una estrofa tranquila que crece hacia un gran estribillo, por ejemplo) y quieres ajustes de EQ/Compresor/Width/Vibe completamente distintos antes y después de ese punto, con un crossfade suave. Section Split y Stem Mastering no pueden estar activos al mismo tiempo — activar uno desactiva el otro.</p>
+<h3>C. Masterizar cada stem por separado (Stem Mastering)</h3>
+<ol>
+<li>Haz clic en <strong>📁 Elegir carpeta</strong> y elige la carpeta que contiene tus archivos de stems (voz, bajo, batería, etc.) — todos los archivos de audio dentro se suben automáticamente. Si prefieres elegir archivos específicos en vez de toda una carpeta, usa <strong>🎵 Elegir archivos</strong> y selecciona varios a la vez (Ctrl/Cmd-clic) en el diálogo.</li>
+<li>Los archivos se ordenan automáticamente en Vocal / Bass / Drums & Percussion / Others según palabras clave en el nombre. Extra nunca se rellena automáticamente — mira Terminología más abajo.</li>
+<li>Haz clic en las pestañas de arriba (Vocal / Bass / Drums & Percussion / Extra / Others) para elegir un stem y darle su propio EQ / Saturación / De-Harsher / Width. El Mixing Desk de abajo siempre refleja la pestaña activa.</li>
+<li>Usa la sección <strong>Master Bus (compartido)</strong> para Bass Protect / Compresor / Loudness / Saturación de Bus / Sidechain Duck — se aplican una sola vez, después de sumar todos los stems, no por stem.</li>
+<li><strong>"🔊 Play Full Mix"</strong> reproduce todos los stems cargados sumados juntos sin procesar — una referencia rápida de la canción cruda.</li>
+<li>Run/Final Mastering procesa cada stem por su propia cadena, los suma, y luego pasa la señal combinada por el Master Bus.</li>
+<li>El panel de descarga ofrece Master más tres variantes — MR/Instrumental, TV Mix, Acapella — todas completamente masterizadas, solo cambia qué stems se incluyen en la suma.</li>
+</ol>
+<h3>Puntos comunes de confusión</h3>
+<ul>
+<li>Extra no se rellena automáticamente. Usa el botón <strong>"+ Add from Others"</strong> en la fila de Extra (o el menú desplegable junto a cualquier chip de archivo) para mover un archivo específico ahí.</li>
+<li>Section Split y Stem Mastering son mutuamente excluyentes — solo puedes usar uno a la vez.</li>
+</ul>
+<h2>📚 Terminología</h2>
+<ul>
+<li><strong>Vocal / Bass / Drums & Percussion</strong> — las tres ranuras principales, asignadas automáticamente por palabra clave en el nombre del archivo.</li>
+<li><strong>Extra</strong> — una ranura opcional que nunca se rellena sola; mueve un stem aquí manualmente cuando quieras tratarlo por separado (un solo de guitarra destacado, por ejemplo).</li>
+<li><strong>Others</strong> — recoge todo lo que no coincidió con ninguna palabra clave (coros, sintetizadores, metales, etc.).</li>
+<li><strong>Master Bus (compartido)</strong> — la etapa de compresor/limitador compartida por la que pasa cada stem una sola vez, después de sumarse. Esto es lo que crea el "glue".</li>
+<li><strong>Saturación de Bus</strong> — saturación armónica en el Master Bus que ayuda a que los stems sumados suenen como una sola grabación cohesiva en vez de capas separadas.</li>
+<li><strong>Sidechain Duck</strong> — un efecto de "pumping": cada vez que el stem disparador (normalmente Drums) golpea, los demás stems bajan brevemente y vuelven a subir.</li>
+<li><strong>Play Full Mix</strong> — reproduce todos los stems cargados sumados sin procesar, como referencia.</li>
+<li><strong>MR / Instrumental</strong> — todo excepto la ranura Vocal; una descarga de karaoke/pista de acompañamiento.</li>
+<li><strong>TV Mix</strong> — excluye solo la voz principal; los coros (en Others) se mantienen.</li>
+<li><strong>Acapella</strong> — solo la ranura Vocal, completamente masterizada por sí sola.</li>
+<li><strong>Bass Protect</strong> — comprime los graves por separado, antes del Compresor principal, para que golpes fuertes en otra parte no corten el sustain del bajo/808.</li>
+<li><strong>De-Harsher</strong> — comprime solo la banda por encima de una frecuencia elegida, suavizando platillos ásperos o sibilancia sin tocar el resto.</li>
+<li><strong>Medidor de Reducción de Ganancia (GR)</strong> — muestra en tiempo real cuánto está bajando el volumen un compresor/limitador en este momento.</li>
+<li><strong>LUFS / True Peak / Crest Factor / LRA</strong> — lecturas de loudness, pico y dinámica en Live Monitor, útiles para comparar con los objetivos de las plataformas (YouTube ronda -14 LUFS).</li>
+<li><strong>Goniómetro</strong> — la visualización circular que muestra la fase izquierda/derecha y la imagen estéreo en tiempo real.</li>
+</ul>`,
       monPoppedOutNote: 'Se separó en una ventana aparte — cierra esa ventana para que vuelva aquí.',
       waveLabelSpectrum: 'Espectro (promedio de toda la pista)',
       waveLabelOriginal: 'Forma de onda original', waveLabelMaster: 'Forma de onda del master',
@@ -6507,6 +7535,31 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       splitCopyHint: '今セクション1に設定されている内容でセクション2を上書きします — セクション2をEQ/コンプレッサーが空の状態から始めなくて済む簡単な方法です。コピーした後もセクション2は自由に調整できます。',
       splitDragHint: 'ヒント: 下のOriginal/Master波形上の縦のマーカーをドラッグして分割位置を設定できます。',
       splitStatusText: (t, cf) => `${t}で分割、クロスフェード${cf}秒`,
+      stemsDropBig: 'ステムをアップロード',
+      stemsDropSmall: 'Vocal / Bass / Drums / Extra — 下でフォルダかファイルを選んでください',
+      stemsPickFolderBtn: '📁 フォルダを選択',
+      stemsPickFilesBtn: '🎵 ファイルを選択',
+      stemsHeroHint: '各ステムを個別にマスタリングしてから、まとめて1つのグルー感のあるマスターに合成します。',
+      panelStems: 'ステムマスタリング',
+      descStems: '下の各ステムは独立したEQ／コンプレッサー／サチュレーション／De-Harsher／Widthを持ちます。その後すべてが合成され、共有のMaster Bus(コンプレッション+サチュレーション)を通ってグルー感が生まれます。タブを切り替えて別のステムを編集できます — 下のMixing Deskは常に選択中のタブを反映します。',
+      stemSlotVocal: 'Vocal', stemSlotBass: 'Bass', stemSlotDrums: 'ドラム&パーカッション', stemSlotExtra: 'Extra', stemSlotOthers: 'Others',
+      btnPlayFullMix: '🔊 フルミックスを再生',
+      stemsFullMixHint: '全ステムを未処理のまま合成して再生します — 元の曲全体がどんな感じか素早く確認できます。',
+      panelMasterBus: 'Master Bus(共有)',
+      masterBusHint: '下のBass Protect／コンプレッサー／Loudnessカードは常にこの1つの共有バスを制御します — 全ステムが合成された後に一度だけ適用され、EQ／サチュレーション／De-Harsher／Widthのようにステムタブごとには切り替わりません。',
+      busSatEnableLabel: 'バスサチュレーション(グルー)', busSatDriveLabel: 'Drive %', busSatMixLabel: 'Mix %',
+      busSatHint: '合成されたミックス全体に軽くかけるサチュレーションです — 個別にマスタリングされたステムを1つのまとまりのあるマスターへと接着する役割で、このステージのBass Protect／コンプレッサーと同じ役割です。',
+      duckEnableLabel: 'サイドチェーンダッキング(パンピング)', duckTriggerLabel: 'トリガーステム', duckAmountLabel: '量 %', duckReleaseLabel: 'リリース(ms)',
+      duckHint: 'トリガーに指定したステムの実際の音に合わせて、他のステムを瞬間的に下げます(例: Drumsを選ぶと他のステムがビートに合わせて「パンピング」します) — テンポ推定ではなく、実際のオーディオ信号に追従する本物のサイドチェーンです。デフォルトはオフ — オンにして耳で聞きながら量／リリースを調整してください。',
+      stemsErrNoneReadable: (names) => `⚠ ドロップされたファイルをオーディオとして読み込めませんでした(${names})。WAV/MP3/M4Aファイルか確認してください。`,
+      stemsErrSomeSkipped: (count, names) => `⚠ ${count}個のファイルを読み込めずスキップしました: ${names}。残りは正常に読み込まれました。`,
+      stemsErrDurationMismatch: (shortName, shortDur, longName, longDur) => `⚠ ステムの長さが一致しません(${shortName}: ${shortDur} vs ${longName}: ${longDur}) — 通常は同じタイムラインを共有するはずです。同じ書き出し元のステムか確認してください。`,
+      stemsAddToExtraBtn: '+ Othersから追加',
+      stemsAddToExtraPlaceholder: '— ファイルを選択 —',
+      btnDlMr: '🎤 MR／伴奏をダウンロード(ボーカルなし)',
+      btnDlTvMix: '📺 TV Mixをダウンロード(リードボーカルのみ除外、コーラスは残す)',
+      btnDlAcapella: '🎙 アカペラをダウンロード(ボーカルのみ)',
+      stemVariantsHint: '上で作成したステムごとのマスタリングをそのまま再利用し、合成するステムの組み合わせだけを変えます — 追加のレンダリング設定は不要です。',
       btnDlBundle: '📦 設定+ログと一緒にダウンロード(フォルダ選択)', dlBundleNote: '名前を入力してフォルダを1つ選ぶだけで、音声ファイル・Settings・Logがまとめてその名前で保存されます。Chrome または Edge が必要です。', dlBundleSaved: '✓ 3つのファイルを保存しました',
       dlBundleFolderHint: '⚠ 「ダウンロード」「ドキュメント」「デスクトップ」やドライブの最上位フォルダは、ブラウザが安全のため直接選択できないようにしています — その中に新しいフォルダを作るか、サブフォルダを選んでください。',
       bundleModalTitle: 'Settings + Logと一緒に保存', bundleModalSub: 'フォルダと名前を選ぶと、音声ファイル・Settingsファイル・Logファイルがまとめてそこに保存されます。',
@@ -6585,7 +7638,46 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       btnPopoutMonitor: '⇱ 別ウィンドウ',
       btnPopoutEq: '⇱ EQを別ウィンドウへ', btnPopoutDesk: '⇱ ダイナミクスを別ウィンドウへ', btnShowAllPopouts: '⇈ すべて表示',
       chipEq: 'EQ', chipDesk: 'ダイナミクス', chipMonitor: 'Live Monitor',
-      btnGlossary: '❓ 用語集',
+      btnGlossary: '📖 使い方＆用語集',
+      glossaryControlsHeading: '🎛 コントロール別リファレンス',
+      guideHtml: `<h2>📖 使い方</h2>
+<h3>A. 1曲を丸ごとマスタリングする</h3>
+<p>上のボックスにWAV/MP3/M4Aファイルを1つアップロードします。Genre/VibeタグやMastering Directionプリセットを選ぶとEQとコンプレッサーが自動で設定され、その下のMixing Deskで自由に微調整できます — すべてのカードにリアルタイムの数値とゲインリダクションメーターが付いているので、耳だけで推測せず、今の設定が実際に何をしているかその場で確認できます。<strong>Run Mastering</strong>でプレビューし、満足したら<strong>Final Mastering</strong>で確定してからダウンロードしてください。</p>
+<h3>B. 曲の途中から雰囲気を変える(Section Split)</h3>
+<p>静かなヴァースから大きなサビへ盛り上がるときのように、曲の途中で雰囲気が変わり、その前後でEQ/コンプレッサー/Width/Vibeを完全に別の設定にして滑らかにクロスフェードさせたいときに使います。Section SplitとStem Masteringは同時には使えません — 片方をオンにすると、もう片方は自動でオフになります。</p>
+<h3>C. ステムごとに別々にマスタリングする(Stem Mastering)</h3>
+<ol>
+<li><strong>📁 フォルダを選択</strong>ボタンをクリックして、ボーカル・ベース・ドラムなどのステムファイルが入ったフォルダを選んでください — フォルダ内のすべてのオーディオファイルが自動的にアップロードされます。フォルダ全体ではなく特定のファイルだけを選びたい場合は、<strong>🎵 ファイルを選択</strong>ボタンでダイアログ内から複数ファイルを選択(Ctrl/Cmdクリック)してください。</li>
+<li>ファイルはファイル名のキーワードによって自動的にVocal / Bass / Drums & Percussion / Othersに振り分けられます。Extraは自動では絶対に埋まりません — 下記の用語集を参照してください。</li>
+<li>上部のタブ(Vocal / Bass / Drums & Percussion / Extra / Others)をクリックしてステムを選び、それぞれ独自のEQ／サチュレーション／De-Harsher／Widthを設定します。下のMixing Deskは常に選択中のタブを反映します。</li>
+<li><strong>Master Bus(共有)</strong>セクションでBass Protect／コンプレッサー／Loudness／バスサチュレーション／サイドチェーンダッキングを設定します — これらはステムごとではなく、すべてのステムが合成された後に一度だけ適用される共有設定です。</li>
+<li><strong>「🔊 Play Full Mix」</strong>は、読み込んだすべてのステムを加工なしでそのまま合成して再生します — 元の曲を確認するためのリファレンスです。</li>
+<li>Run/Final Masteringを実行すると、各ステムがそれぞれのチェーンで処理された後に合成され、その合成信号がMaster Busを通ります。</li>
+<li>ダウンロードパネルではMasterに加えて、MR／Instrumental、TV Mix、Acapellaの3つのバリエーションもダウンロードできます — すべて完全にマスタリング済みで、合成に含まれるステムだけが異なります。</li>
+</ol>
+<h3>よくある混乱ポイント</h3>
+<ul>
+<li>Extraは自動では埋まりません。Extra行の<strong>「+ Othersから追加」</strong>ボタン(またはファイルチップ横のドロップダウン)で、目的のファイルを手動で移動してください。</li>
+<li>Section SplitとStem Masteringは同時に使えません — どちらか一方だけを選んでください。</li>
+</ul>
+<h2>📚 用語集</h2>
+<ul>
+<li><strong>Vocal / Bass / Drums & Percussion</strong> — ファイル名のキーワードで自動的に割り当てられる3つの主要スロット。</li>
+<li><strong>Extra</strong> — 自動では絶対に埋まらないオプションのスロット。目立つギターソロなど、単独で扱いたいステムがあるときに手動で移動します。</li>
+<li><strong>Others</strong> — 上記のキーワードに一致しなかったものすべてが集まるスロット(コーラス、シンセ、ブラスなど)。</li>
+<li><strong>Master Bus(共有)</strong> — すべてのステムが合成された後に一度だけ通る共有コンプレッサー/リミッター段階。ここが「グルー感」を生み出します。</li>
+<li><strong>バスサチュレーション</strong> — Master Busにかける軽い倍音サチュレーション。個別にマスタリングされたステムを、ばらばらの層ではなく1つのまとまった録音のように聴かせます。</li>
+<li><strong>サイドチェーンダッキング</strong> — 「パンピング」効果。トリガーに指定したステム(通常はDrums)が鳴るたびに、他のステムが一瞬だけ沈み込み、また戻ります。</li>
+<li><strong>Play Full Mix</strong> — 読み込んだすべてのステムを加工なしで合成して再生する、リファレンス用の再生。</li>
+<li><strong>MR／Instrumental</strong> — Vocalスロットを除いた全体。カラオケ・伴奏用のダウンロードです。</li>
+<li><strong>TV Mix</strong> — リードボーカルのみを除外し、Othersに含まれるコーラスはそのまま残ります。</li>
+<li><strong>Acapella</strong> — Vocalスロットのみを含み、それ単体で完全にマスタリングしたダウンロードです。</li>
+<li><strong>Bass Protect</strong> — 低域をメインコンプレッサーより先に別々に圧縮し、他の音の強い打撃がベース/808のサステインを巻き込んで途切れさせるのを防ぎます。</li>
+<li><strong>De-Harsher</strong> — 指定した周波数より上の帯域だけを圧縮します。シンバルやシビランスなど耳障りな部分だけを抑え、他はそのままにします。</li>
+<li><strong>ゲインリダクション(GR)メーター</strong> — コンプレッサー/リミッターが現在どれだけ信号を下げているかをリアルタイムに表示します。</li>
+<li><strong>LUFS／True Peak／Crest Factor／LRA</strong> — Live Monitorに表示されるラウドネス・ピーク・ダイナミクスの数値。各プラットフォームの目標値(YouTubeはおおよそ-14 LUFS)と比較する際の参考になります。</li>
+<li><strong>ゴニオメーター</strong> — 左右チャンネルの位相とステレオイメージをリアルタイムに円形で表示するビジュアライザー。</li>
+</ul>`,
       monPoppedOutNote: '別ウィンドウに切り離されました — そのウィンドウを閉じるとここに戻ります。',
       waveLabelSpectrum: 'スペクトラム（トラック全体の平均）',
       waveLabelOriginal: 'オリジナル波形', waveLabelMaster: 'マスター波形',
@@ -6687,6 +7779,31 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       splitCopyHint: '用段落1当前的设置覆盖段落2 —— 让段落2不用从空白的EQ/压缩器开始，快速给它一个起点。复制之后仍然可以自由调整段落2。',
       splitDragHint: '提示: 拖动下方Original/Master波形上的竖线标记即可设置分割点。',
       splitStatusText: (t, cf) => `在${t}处分割，过渡${cf}秒`,
+      stemsDropBig: '上传分轨(stems)',
+      stemsDropSmall: 'Vocal / Bass / Drums / Extra — 在下面选择文件夹或文件',
+      stemsPickFolderBtn: '📁 选择文件夹',
+      stemsPickFilesBtn: '🎵 选择文件',
+      stemsHeroHint: '对每个分轨单独母带处理，然后合成为一个有凝聚感(glue)的母带。',
+      panelStems: '分轨母带处理',
+      descStems: '下面每个分轨都有独立的EQ／压缩器／饱和／De-Harsher／宽度。之后全部信号会合并，经过共享的Master Bus(压缩+饱和)以产生凝聚感。切换标签页即可编辑不同分轨 — 下方的混音台始终反映当前选中的标签。',
+      stemSlotVocal: 'Vocal', stemSlotBass: 'Bass', stemSlotDrums: '鼓组与打击乐', stemSlotExtra: 'Extra', stemSlotOthers: '其他',
+      btnPlayFullMix: '🔊 播放完整混音',
+      stemsFullMixHint: '播放所有分轨未经处理的合成结果 — 快速参考原始合并歌曲的听感。',
+      panelMasterBus: 'Master Bus(共享)',
+      masterBusHint: '下方的Bass Protect／压缩器／Loudness卡片始终控制这一个共享总线 — 在所有分轨合并后统一应用一次，不会像EQ／饱和／De-Harsher／宽度那样按分轨标签切换。',
+      busSatEnableLabel: '总线饱和(glue)', busSatDriveLabel: 'Drive %', busSatMixLabel: 'Mix %',
+      busSatHint: '在合并后的整体混音上叠加一层轻微饱和 — 这正是把分别母带处理过的分轨粘合成一个有整体感的母带的关键，与这一阶段Bass Protect／压缩器的作用相同。',
+      duckEnableLabel: '侧链闪避(pumping)', duckTriggerLabel: '触发分轨', duckAmountLabel: '强度 %', duckReleaseLabel: '释放时间 (ms)',
+      duckHint: '让其他每条分轨都跟随触发分轨的真实声音同步"闪避"(例如选择Drums，其他分轨就会随节拍"泵浦") — 这是真正的音频级侧链，不是节奏猜测。默认关闭 — 开启后请用耳朵调整强度／释放时间。',
+      stemsErrNoneReadable: (names) => `⚠ 无法将拖入的文件读取为音频(${names})。请确认是WAV/MP3/M4A文件。`,
+      stemsErrSomeSkipped: (count, names) => `⚠ 有${count}个文件无法读取已跳过：${names}。其余文件已正常载入。`,
+      stemsErrDurationMismatch: (shortName, shortDur, longName, longDur) => `⚠ 分轨长度不一致(${shortName}: ${shortDur} 对比 ${longName}: ${longDur}) — 通常它们应该共享同一时间线，请确认这些分轨来自同一次导出。`,
+      stemsAddToExtraBtn: '+ 从Others添加',
+      stemsAddToExtraPlaceholder: '— 选择一个文件 —',
+      btnDlMr: '🎤 下载MR／伴奏(不含人声)',
+      btnDlTvMix: '📺 下载TV Mix(仅去除主唱，保留和声)',
+      btnDlAcapella: '🎙 下载Acapella(仅人声)',
+      stemVariantsHint: '这些直接复用上面各分轨的母带处理结果，只是合并不同的分轨组合 — 无需额外渲染设置。',
       btnDlBundle: '📦 连同设置+日志一起下载(选择文件夹)', dlBundleNote: '输入名字后只需选择一个文件夹 — 音频文件、设置文件和日志文件都会用这个名字一起保存在那里。需要Chrome或Edge浏览器。', dlBundleSaved: '✓ 已保存3个文件',
       dlBundleFolderHint: '⚠ 浏览器出于安全考虑，不允许直接选择"下载"、"文档"、"桌面"或磁盘根目录 — 请在里面新建或选择一个子文件夹。',
       bundleModalTitle: '连同设置+日志一起保存', bundleModalSub: '选择文件夹和名字，音频文件、设置文件和日志文件都会一起保存在那里。',
@@ -6765,7 +7882,46 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       btnPopoutMonitor: '⇱ 弹出窗口',
       btnPopoutEq: '⇱ 分离EQ窗口', btnPopoutDesk: '⇱ 分离动态处理窗口', btnShowAllPopouts: '⇈ 全部显示',
       chipEq: 'EQ', chipDesk: '动态处理', chipMonitor: 'Live Monitor',
-      btnGlossary: '❓ 术语表',
+      btnGlossary: '📖 使用指南与术语表',
+      glossaryControlsHeading: '🎛 逐项控件说明',
+      guideHtml: `<h2>📖 使用方法</h2>
+<h3>A. 母带处理单个成品音轨</h3>
+<p>在顶部方框中上传一个WAV/MP3/M4A文件。选择一个Genre/Vibe标签或Mastering Direction预设，EQ和压缩器就会自动填好，然后可以在下方的混音台(Mixing Desk)中自由微调 — 每张卡片都有实时数值和增益衰减(GR)表，让你能直接看到当前设置到底在做什么，而不是靠耳朵猜。点击<strong>Run Mastering</strong>预览，满意后点<strong>Final Mastering</strong>确认，再下载。</p>
+<h3>B. 从歌曲中段开始改变风格(Section Split)</h3>
+<p>当歌曲情绪在中途发生变化(比如安静的主歌逐渐推向宏大的副歌)，并且你想在那个时间点前后使用完全不同的EQ/压缩器/宽度/Vibe设置、并平滑交叉淡化时，可以打开这个功能。Section Split和分轨母带处理(Stem Mastering)不能同时使用 — 打开一个会自动关闭另一个。</p>
+<h3>C. 分别对每个分轨进行母带处理(Stem Mastering)</h3>
+<ol>
+<li>点击<strong>📁 选择文件夹</strong>按钮，选择包含你的分轨文件(人声、贝斯、鼓等)的文件夹 — 文件夹内的所有音频文件都会自动上传。如果你想选择特定文件而不是整个文件夹，可以使用<strong>🎵 选择文件</strong>按钮，在对话框中按住Ctrl/Cmd多选文件。</li>
+<li>文件会根据文件名中的关键词自动分配到Vocal / Bass / Drums & Percussion / Others。Extra永远不会自动填充 — 详见下方术语表。</li>
+<li>点击顶部的标签页(Vocal / Bass / Drums & Percussion / Extra / Others)选择一个分轨，为它设置独立的EQ／饱和／De-Harsher／宽度。下方的混音台始终反映当前选中的标签页。</li>
+<li>在<strong>Master Bus(共享)</strong>部分设置Bass Protect／压缩器／响度／总线饱和／侧链闪避 — 这些不是按分轨单独生效，而是在所有分轨合并之后统一应用一次。</li>
+<li><strong>"🔊 Play Full Mix"</strong>会不经任何处理，直接播放所有已加载分轨的合并结果 — 用作原始歌曲的快速参考。</li>
+<li>Run/Final Mastering会让每个分轨先经过各自的处理链，再合并，然后让合并后的信号经过Master Bus。</li>
+<li>下载面板除了Master之外，还提供三种变体 — MR／伴奏、TV Mix、Acapella — 全部都是完整母带处理过的，只是合并时包含的分轨不同。</li>
+</ol>
+<h3>常见的困惑点</h3>
+<ul>
+<li>Extra不会自动填充。使用Extra行上的<strong>"+ 从Others添加"</strong>按钮(或任意文件标签旁的下拉菜单)手动把某个文件移到这里。</li>
+<li>Section Split和Stem Mastering互斥 — 同一时间只能使用其中一个。</li>
+</ul>
+<h2>📚 术语表</h2>
+<ul>
+<li><strong>Vocal / Bass / Drums & Percussion</strong> — 三个核心分轨槽位，根据文件名关键词自动分配。</li>
+<li><strong>Extra</strong> — 一个可选槽位，永远不会自动填充；当你想单独处理某个分轨(比如突出的吉他独奏)时，手动把它移到这里。</li>
+<li><strong>Others</strong> — 收纳所有没有匹配到关键词的分轨(和声、合成器、铜管等)。</li>
+<li><strong>Master Bus(共享)</strong> — 所有分轨合并后统一经过一次的共享压缩器/限幅器阶段，这正是产生"凝聚感"(glue)的地方。</li>
+<li><strong>总线饱和</strong> — 施加在Master Bus上的轻微谐波饱和，帮助合并后的分轨听起来像一份完整的录音，而不是各自独立的层。</li>
+<li><strong>侧链闪避</strong> — 一种"pumping"效果：每当触发分轨(通常是Drums)响起时，其他分轨会瞬间轻微下沉，然后再回弹。</li>
+<li><strong>Play Full Mix</strong> — 不经处理，直接播放所有已加载分轨合并后的效果，用作参考。</li>
+<li><strong>MR／伴奏</strong> — 除Vocal槽位外的全部内容，可作为卡拉OK/伴奏下载。</li>
+<li><strong>TV Mix</strong> — 仅去除主唱，Others中的和声会保留。</li>
+<li><strong>Acapella</strong> — 仅包含Vocal槽位，单独完整地进行母带处理后的下载。</li>
+<li><strong>Bass Protect</strong> — 在主压缩器之前单独压缩低频，防止其他部分的响亮打击音连带压垮贝斯/808的延音。</li>
+<li><strong>De-Harsher</strong> — 只压缩指定频率以上的频段，压制刺耳的镲片、齿音等，同时不影响其余部分。</li>
+<li><strong>增益衰减(GR)表</strong> — 实时显示压缩器/限幅器当前把信号压低了多少。</li>
+<li><strong>LUFS／True Peak／Crest Factor／LRA</strong> — Live Monitor中显示的响度、峰值和动态数值，可用于和各平台的目标值比较(YouTube大约是-14 LUFS)。</li>
+<li><strong>相位表(Goniometer)</strong> — 以圆形实时显示左右声道相位和立体声图像的可视化工具。</li>
+</ul>`,
       monPoppedOutNote: '已分离到单独的窗口 — 关闭该窗口即可返回此处。',
       waveLabelSpectrum: '频谱（全曲平均）',
       waveLabelOriginal: '原始波形', waveLabelMaster: '母带波形',
@@ -6871,6 +8027,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     if(typeof lastMeasuredLufs !== 'undefined' && lastMeasuredLufs != null) updateDownloadSuggestions(lastMeasuredLufs);
     if(typeof lastMeasuredLufs !== 'undefined' && lastMeasuredLufs != null && typeof lastMeasuredPeak !== 'undefined' && lastMeasuredPeak != null) updatePlatformChecklist(lastMeasuredLufs, lastMeasuredPeak);
     if(typeof updateSplitStatusText === 'function') updateSplitStatusText();
+    if(typeof renderStemSlotList === 'function' && typeof stemSlots !== 'undefined' && stemSlots && Object.keys(stemSlots).length) renderStemSlotList();
   }
 
   document.getElementById('langBtn').addEventListener('click', ()=>{
