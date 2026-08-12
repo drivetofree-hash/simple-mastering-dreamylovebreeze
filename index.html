@@ -1171,7 +1171,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       <div id="stemSlotList" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
 
       <button class="dl-btn" id="stemsPlayFullMixBtn" style="width:auto; padding:9px 16px; margin-top:12px;" data-i18n="btnPlayFullMix">🔊 Play Full Mix</button>
+      <button class="dl-btn" id="stemsPlayMasteredMixBtn" style="width:auto; padding:9px 16px; margin-top:12px; margin-left:8px;" data-i18n="btnPlayMasteredMix">🎧 Play Mastered Mix</button>
       <div class="note" style="margin-top:6px;" data-i18n="stemsFullMixHint">Plays every stem summed together, unprocessed — a quick reference for what the raw combined song sounds like.</div>
+      <div class="note" style="margin-top:2px;" data-i18n="stemsMasteredMixHint">Renders the full stem chain + Master Bus once, then plays the result immediately — not a live graph, so moving a slider while it's playing won't change what you hear until you click it again.</div>
 
       <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
         <div class="panel-title" style="font-size:12px;" data-i18n="panelMasterBus">Master Bus (shared)</div>
@@ -1182,11 +1184,11 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         </label>
         <div class="fmt-row" style="display:flex; gap:16px; flex-wrap:wrap;">
           <div style="flex:1; min-width:140px;">
-            <label data-i18n="busSatDriveLabel">Drive %</label>
+            <div class="prow-head"><span class="lbl" data-i18n="busSatDriveLabel">Drive %</span><span class="num-input-group"><input class="num-input" type="number" id="busSatAmountNum" min="0" max="100" step="1"><span class="unit-suffix">%</span></span></div>
             <input type="range" id="busSatAmountSlider" min="0" max="100" step="1" value="15" style="width:100%;">
           </div>
           <div style="flex:1; min-width:140px;">
-            <label data-i18n="busSatMixLabel">Mix %</label>
+            <div class="prow-head"><span class="lbl" data-i18n="busSatMixLabel">Mix %</span><span class="num-input-group"><input class="num-input" type="number" id="busSatMixNum" min="0" max="100" step="1"><span class="unit-suffix">%</span></span></div>
             <input type="range" id="busSatMixSlider" min="0" max="100" step="1" value="20" style="width:100%;">
           </div>
         </div>
@@ -1209,11 +1211,11 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
               </select>
             </div>
             <div style="flex:1; min-width:120px;">
-              <label data-i18n="duckAmountLabel">Amount %</label>
+              <div class="prow-head"><span class="lbl" data-i18n="duckAmountLabel">Amount %</span><span class="num-input-group"><input class="num-input" type="number" id="duckAmountNum" min="0" max="90" step="1"><span class="unit-suffix">%</span></span></div>
               <input type="range" id="duckAmountSlider" min="0" max="90" step="1" value="30" style="width:100%;">
             </div>
             <div style="flex:1; min-width:120px;">
-              <label data-i18n="duckReleaseLabel">Release (ms)</label>
+              <div class="prow-head"><span class="lbl" data-i18n="duckReleaseLabel">Release (ms)</span><span class="num-input-group"><input class="num-input" type="number" id="duckReleaseNum" min="20" max="400" step="10"><span class="unit-suffix">ms</span></span></div>
               <input type="range" id="duckReleaseSlider" min="20" max="400" step="10" value="150" style="width:100%;">
             </div>
           </div>
@@ -1237,6 +1239,13 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         <span style="font-size:11.5px; color:var(--text-dim);" id="copySettingsStatus"></span>
       </div>
       <div class="note" style="margin-top:10px;" data-i18n="logNote">The Log (unlike Undo) never overwrites anything — it's a running record of every edit, preset choice, undo, and jump you make, in order, even ones you later undid. Useful as a provenance record of how much of the final result came from manual, human-directed work.</div>
+      <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line); display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <button class="dl-btn" id="saveProjectBtn" style="width:auto; padding:9px 16px; background:var(--panel-2); color:var(--accent); border:1px solid var(--accent);" data-i18n="btnSaveProject">💿 Save Project (.zip)</button>
+        <button class="dl-btn" id="loadProjectBtn" style="width:auto; padding:9px 16px; background:var(--panel-2); color:var(--accent); border:1px solid var(--accent);" data-i18n="btnLoadProject">📂 Load Project (.zip)</button>
+        <input type="file" id="loadProjectInput" accept=".zip">
+        <span style="font-size:11.5px; color:var(--text-dim);" id="projectStatus"></span>
+      </div>
+      <div class="note" style="margin-top:10px;" data-i18n="projectNote">Bundles the loaded audio (all stems, if Stem Mode is on) plus every setting — EQ, Genre/Vibe/Preset, Bus Saturation, Sidechain Duck, the works — into one .zip named after the track, so re-uploading audio and loading settings text separately (and the risk of the two getting out of sync) isn't necessary. Load Project restores everything in one step.</div>
     </div>
 
     <div class="desk-row">
@@ -2654,7 +2663,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   const PARAM_KEYS = ['lowFreq','lowGain','subGain','bassGain','lowmidGain','midFreq','midGain','midQ','himidGain','presenceGain','highFreq','highGain',
     'satAmount','satMix',
     'deFreq','deSens','deAmount','thresh','ratio','attack','release','makeup','ceil','intensity','width',
-    'bassFreq','bassThresh','bassRatio','bassAttack','bassRelease'];
+    'bassFreq','bassThresh','bassRatio','bassAttack','bassRelease',
+    // Master Bus glue (Bus Saturation/Sidechain Duck amount+release) — these
+    // have matching …Slider elements so val() already works on them for
+    // free; without them here, editing Bus Saturation/Duck produced a
+    // history entry (mislabeled under whatever stem tab happened to be
+    // active — see scheduleHistoryPush) whose snap didn't even contain the
+    // value that was actually changed.
+    'busSatAmount','busSatMix','duckAmount','duckRelease'];
   let history = [];
   let historyIndex = -1;
   let historyDebounceId = null;
@@ -2678,21 +2694,51 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     PARAM_KEYS.forEach(k => snap[k] = val(k));
     return snap;
   }
-  function pushHistory(label){
-    if(restoringSnapshot || !audioBuffer) return;
-    if(splitEnabled && activeSection === 2) label = '[Section 2] ' + label;
-    if(stemModeEnabled && activeStemSlotId && stemSlots[activeStemSlotId]) label = `[${stemSlots[activeStemSlotId].label}] ` + label;
+  // Shared append step: takes an already-decided label + snapshot and just
+  // records them. pushHistory() below derives both "live" (fine for direct/
+  // synchronous callers, where nothing can change between the edit and the
+  // log write). scheduleHistoryPush() must NOT derive them live, since its
+  // whole point is to defer the actual write by 700ms — see comment there.
+  function pushHistorySnap(label, snap){
     history = history.slice(0, historyIndex+1);
-    const snap = snapshotParams();
     history.push({ label, time: new Date(), snap });
     historyIndex = history.length - 1;
     logEvent('Edit', label, snap);
     renderHistoryLog();
   }
-  function scheduleHistoryPush(label){
+  function pushHistory(label){
     if(restoringSnapshot || !audioBuffer) return;
+    if(splitEnabled && activeSection === 2) label = '[Section 2] ' + label;
+    if(stemModeEnabled && activeStemSlotId && stemSlots[activeStemSlotId]) label = `[${stemSlots[activeStemSlotId].label}] ` + label;
+    pushHistorySnap(label, snapshotParams());
+  }
+  function scheduleHistoryPush(label, busLevel){
+    if(restoringSnapshot || !audioBuffer) return;
+    // Capture the tab label and the slider values RIGHT NOW, not 700ms from
+    // now — if the user switches Section/Stem tabs before the debounce
+    // fires (very easy: drag a slider, then immediately click another tab),
+    // a version of this that re-derives "which tab" and "what values" at
+    // fire time logs the edit under the WRONG tab using the WRONG tab's
+    // values. Worse, if that mislabeled entry is later jumped to via Edit
+    // History, applySnapshot() writes those wrong values onto whatever tab
+    // happens to be active at THAT point — the real mechanism behind stem
+    // settings bleeding from one tab's block into another's after a rapid
+    // tab-switch sequence.
+    let label2 = label;
+    if(splitEnabled && activeSection === 2) label2 = '[Section 2] ' + label2;
+    // busLevel=true means this came from a Master Bus glue control
+    // (Bus Saturation/Sidechain Duck), which isn't tied to whichever stem
+    // tab happens to be active — tagging it with that tab's name would be
+    // just as wrong as the race above, only deterministically wrong instead
+    // of timing-dependent. Tag it as its own thing instead.
+    if(busLevel){
+      if(stemModeEnabled) label2 = '[Master Bus] ' + label2;
+    } else if(stemModeEnabled && activeStemSlotId && stemSlots[activeStemSlotId]){
+      label2 = `[${stemSlots[activeStemSlotId].label}] ` + label2;
+    }
+    const snap = snapshotParams();
     clearTimeout(historyDebounceId);
-    historyDebounceId = setTimeout(()=> pushHistory(label), 700);
+    historyDebounceId = setTimeout(()=> pushHistorySnap(label2, snap), 700);
   }
   function applySnapshot(snap){
     restoringSnapshot = true;
@@ -2993,6 +3039,33 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     if(snap.bassEnable != null) document.getElementById('bassEnable').checked = !!snap.bassEnable;
     if(snap.satEnable != null) document.getElementById('satEnable').checked = !!snap.satEnable;
     if(snap.deEnable != null) document.getElementById('deEnable').checked = !!snap.deEnable;
+    if(snap.presetValue != null){
+      document.getElementById('presetSelect').value = snap.presetValue;
+      document.getElementById('presetDesc').textContent = currentPresetDescText();
+    }
+    if(snap.genreTags){
+      GENRE_LAYER_IDS.forEach(id=>{
+        document.querySelectorAll('#'+id+' .layer-chip').forEach(chip=>{
+          chip.classList.toggle('active', snap.genreTags.includes(chip.dataset.value));
+        });
+        const atMax = document.querySelectorAll('#'+id+' .layer-chip.active').length >= LAYER_MAX;
+        document.querySelectorAll('#'+id+' .layer-chip').forEach(c=>{
+          c.disabled = atMax && !c.classList.contains('active');
+        });
+      });
+    }
+    if(snap.vibeTags){
+      VIBE_LAYER_IDS.forEach(id=>{
+        document.querySelectorAll('#'+id+' .layer-chip').forEach(chip=>{
+          chip.classList.toggle('active', snap.vibeTags.includes(chip.dataset.value));
+        });
+        const atMax = document.querySelectorAll('#'+id+' .layer-chip.active').length >= LAYER_MAX;
+        document.querySelectorAll('#'+id+' .layer-chip').forEach(c=>{
+          c.disabled = atMax && !c.classList.contains('active');
+        });
+      });
+    }
+    if(snap.genreTags || snap.vibeTags) updateGenreCard();
     restoringSnapshot = false;
     applyAllParams();
     invalidateMaster();
@@ -3042,6 +3115,31 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       renderStemSlotList();
       logEvent('Edit', 'Stem settings loaded from file');
     }
+
+    // Bus Saturation / Sidechain Duck — bus-level, so restored once here
+    // rather than per-stem. Independent of the snap.stems check above since
+    // these are always written together with "Stem Mode: On" but a file
+    // could in principle carry one without the other.
+    if(stemModeEnabled && (snap.busSat || snap.duck)){
+      // set the slider AND its paired number field directly rather than
+      // dispatching 'input' — that would also fire the sliders' own
+      // invalidateMaster()/scheduleHistoryPush('Manual edit') listener,
+      // logging a spurious "Manual edit" for what's actually a file load
+      // (already logged below as its own event).
+      if(snap.busSat){
+        if(snap.busSat.enable != null) document.getElementById('busSatEnable').checked = !!snap.busSat.enable;
+        if(snap.busSat.drive != null){ document.getElementById('busSatAmountSlider').value = snap.busSat.drive; document.getElementById('busSatAmountNum').value = Math.round(snap.busSat.drive); }
+        if(snap.busSat.mix != null){ document.getElementById('busSatMixSlider').value = snap.busSat.mix; document.getElementById('busSatMixNum').value = Math.round(snap.busSat.mix); }
+      }
+      if(snap.duck){
+        if(snap.duck.enable != null) document.getElementById('duckEnable').checked = !!snap.duck.enable;
+        if(snap.duck.trigger) document.getElementById('duckTriggerSelect').value = snap.duck.trigger;
+        if(snap.duck.amount != null){ document.getElementById('duckAmountSlider').value = snap.duck.amount; document.getElementById('duckAmountNum').value = Math.round(snap.duck.amount); }
+        if(snap.duck.release != null){ document.getElementById('duckReleaseSlider').value = snap.duck.release; document.getElementById('duckReleaseNum').value = Math.round(snap.duck.release); }
+      }
+      invalidateMaster();
+      logEvent('Edit', 'Master Bus glue settings loaded from file');
+    }
   }
 
   // ---- Copy all current Mixing Desk settings as plain text — handy for
@@ -3057,6 +3155,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     lines.splice(18, 0, `${prefix} — Bass Protect Enable: ${snap.bassEnable ? 'On' : 'Off'}`);
     lines.splice(12, 0, `${prefix} — Saturation Enable: ${snap.satEnable ? 'On' : 'Off'}`);
     lines.push(`${prefix} — De-Harsher Enable: ${snap.deEnable ? 'On' : 'Off'}`);
+    lines.push(`${prefix} — Preset: ${snap.presetValue || ''}`);
+    lines.push(`${prefix} — Genre Tags: ${(snap.genreTags||[]).join(', ')}`);
+    lines.push(`${prefix} — Vibe Tags: ${(snap.vibeTags||[]).join(', ')}`);
     return lines;
   }
   function getSplitSettingsText(){
@@ -3082,11 +3183,25 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const lines = STEM_ONLY_KEYS.map(k => `${prefix} — ${SETTINGS_LABELS[k]}: ${snap[k]}`);
     lines.push(`${prefix} — Saturation Enable: ${snap.satEnable ? 'On' : 'Off'}`);
     lines.push(`${prefix} — De-Harsher Enable: ${snap.deEnable ? 'On' : 'Off'}`);
+    lines.push(`${prefix} — Preset: ${snap.presetValue || ''}`);
+    lines.push(`${prefix} — Genre Tags: ${(snap.genreTags||[]).join(', ')}`);
+    lines.push(`${prefix} — Vibe Tags: ${(snap.vibeTags||[]).join(', ')}`);
     return lines;
   }
   function getStemSettingsText(){
     if(activeStemSlotId) stemSlots[activeStemSlotId].settings = captureStemState();
     const lines = ['Stem Mode: On'];
+    // Master Bus glue controls (Bus Saturation, Sidechain Duck) live outside
+    // SETTINGS_SLIDER_KEYS/bindPair (see the comment where they're wired up),
+    // so they were never part of any existing save path — add them as a
+    // flat block here since they're shared/bus-level, not per-stem.
+    lines.push(`Bus Saturation Enable: ${document.getElementById('busSatEnable').checked ? 'On' : 'Off'}`);
+    lines.push(`Bus Saturation Drive: ${document.getElementById('busSatAmountSlider').value}`);
+    lines.push(`Bus Saturation Mix: ${document.getElementById('busSatMixSlider').value}`);
+    lines.push(`Sidechain Duck Enable: ${document.getElementById('duckEnable').checked ? 'On' : 'Off'}`);
+    lines.push(`Sidechain Duck Trigger: ${document.getElementById('duckTriggerSelect').value}`);
+    lines.push(`Sidechain Duck Amount: ${document.getElementById('duckAmountSlider').value}`);
+    lines.push(`Sidechain Duck Release: ${document.getElementById('duckReleaseSlider').value}`);
     STEM_SLOT_DEFS.forEach(def=>{
       const settings = stemSlots[def.id] && stemSlots[def.id].settings;
       if(!settings) return; // empty/never-visited slot (no stem audio in it) — nothing to save
@@ -3101,6 +3216,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     lines.splice(18, 0, `Bass Protect Enable: ${snap.bassEnable ? 'On' : 'Off'}`);
     lines.splice(12, 0, `Saturation Enable: ${snap.satEnable ? 'On' : 'Off'}`);
     lines.push(`De-Harsher Enable: ${snap.deEnable ? 'On' : 'Off'}`);
+    lines.push(`Preset: ${document.getElementById('presetSelect').value || ''}`);
+    lines.push(`Genre Tags: ${collectLayerValues(GENRE_LAYER_IDS).join(', ')}`);
+    lines.push(`Vibe Tags: ${collectLayerValues(VIBE_LAYER_IDS).join(', ')}`);
     let out = 'AI Mastering Tool — Mixing Desk settings\n' + lines.join('\n');
     if(splitEnabled && splitTimeSec != null){
       syncActiveSectionState();
@@ -3229,31 +3347,54 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const sectionA = {}, sectionB = {};
     const stems = {}; // slotId -> partial settings object
     text.split('\n').forEach(line=>{
-      const idx = line.indexOf(':');
-      if(idx === -1) return;
-      const label = line.slice(0, idx).trim();
-      const valueStr = line.slice(idx+1).trim();
-
-      if(label === 'Split Enabled'){ snap.splitEnabled = /^on$/i.test(valueStr); return; }
-      if(label === 'Split Time (s)'){ const n = parseFloat(valueStr); if(!isNaN(n)) snap.splitTimeSec = n; return; }
-      if(label === 'Split Crossfade (s)'){ const n = parseFloat(valueStr); if(!isNaN(n)) snap.splitCrossfadeSec = n; return; }
-      if(label === 'Stem Mode'){ snap.stemModeEnabled = /^on$/i.test(valueStr); return; }
-
-      let target = snap, rawLabel = label;
-      if(label.startsWith('Section A — ')){ target = sectionA; rawLabel = label.slice('Section A — '.length); }
-      else if(label.startsWith('Section B — ')){ target = sectionB; rawLabel = label.slice('Section B — '.length); }
+      // Prefix stripping MUST happen before finding the label:value colon.
+      // "Stem: Vocal — Low Shelf Gain: 4.4" has a colon inside its own
+      // prefix ("Stem:") — naively splitting the whole line on its first
+      // colon grabs "Stem" as the label and mangles everything after it,
+      // so every "Stem: …" and "Section …" line silently failed to parse
+      // (Section A/B happened to survive only because "Section A —" itself
+      // contains no colon). Match a known prefix first, strip it, THEN
+      // split the remainder on ITS first colon.
+      let target = snap, rest = line, isPrefixed = false;
+      if(line.startsWith('Section A — ')){ target = sectionA; rest = line.slice('Section A — '.length); isPrefixed = true; }
+      else if(line.startsWith('Section B — ')){ target = sectionB; rest = line.slice('Section B — '.length); isPrefixed = true; }
       else {
-        const stemDef = STEM_SLOT_DEFS.find(def=> label.startsWith('Stem: '+def.defaultLabel+' — '));
+        const stemDef = STEM_SLOT_DEFS.find(def=> line.startsWith('Stem: '+def.defaultLabel+' — '));
         if(stemDef){
-          rawLabel = label.slice(('Stem: '+stemDef.defaultLabel+' — ').length);
+          rest = line.slice(('Stem: '+stemDef.defaultLabel+' — ').length);
           if(!stems[stemDef.id]) stems[stemDef.id] = {};
           target = stems[stemDef.id];
+          isPrefixed = true;
         }
+      }
+
+      const idx = rest.indexOf(':');
+      if(idx === -1) return;
+      const rawLabel = rest.slice(0, idx).trim();
+      const valueStr = rest.slice(idx+1).trim();
+
+      // Always flat/top-level only — never written with a Section/Stem
+      // prefix — so only recognize these when no prefix matched above.
+      if(!isPrefixed){
+        if(rawLabel === 'Split Enabled'){ snap.splitEnabled = /^on$/i.test(valueStr); return; }
+        if(rawLabel === 'Split Time (s)'){ const n = parseFloat(valueStr); if(!isNaN(n)) snap.splitTimeSec = n; return; }
+        if(rawLabel === 'Split Crossfade (s)'){ const n = parseFloat(valueStr); if(!isNaN(n)) snap.splitCrossfadeSec = n; return; }
+        if(rawLabel === 'Stem Mode'){ snap.stemModeEnabled = /^on$/i.test(valueStr); return; }
+        if(rawLabel === 'Bus Saturation Enable'){ (snap.busSat = snap.busSat || {}).enable = /^on$/i.test(valueStr); return; }
+        if(rawLabel === 'Bus Saturation Drive'){ const n = parseFloat(valueStr); if(!isNaN(n)) (snap.busSat = snap.busSat || {}).drive = n; return; }
+        if(rawLabel === 'Bus Saturation Mix'){ const n = parseFloat(valueStr); if(!isNaN(n)) (snap.busSat = snap.busSat || {}).mix = n; return; }
+        if(rawLabel === 'Sidechain Duck Enable'){ (snap.duck = snap.duck || {}).enable = /^on$/i.test(valueStr); return; }
+        if(rawLabel === 'Sidechain Duck Trigger'){ (snap.duck = snap.duck || {}).trigger = valueStr; return; }
+        if(rawLabel === 'Sidechain Duck Amount'){ const n = parseFloat(valueStr); if(!isNaN(n)) (snap.duck = snap.duck || {}).amount = n; return; }
+        if(rawLabel === 'Sidechain Duck Release'){ const n = parseFloat(valueStr); if(!isNaN(n)) (snap.duck = snap.duck || {}).release = n; return; }
       }
 
       if(rawLabel === 'Bass Protect Enable'){ target.bassEnable = /^on$/i.test(valueStr); return; }
       if(rawLabel === 'Saturation Enable'){ target.satEnable = /^on$/i.test(valueStr); return; }
       if(rawLabel === 'De-Harsher Enable'){ target.deEnable = /^on$/i.test(valueStr); return; }
+      if(rawLabel === 'Preset'){ target.presetValue = valueStr; return; }
+      if(rawLabel === 'Genre Tags'){ target.genreTags = valueStr ? valueStr.split(',').map(s=>s.trim()).filter(Boolean) : []; return; }
+      if(rawLabel === 'Vibe Tags'){ target.vibeTags = valueStr ? valueStr.split(',').map(s=>s.trim()).filter(Boolean) : []; return; }
       const key = LABEL_TO_SETTINGS_KEY[rawLabel];
       if(key){
         const num = parseFloat(valueStr);
@@ -3305,6 +3446,131 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     applySettingsSnapshot(snap);
     statusEl.textContent = 'Settings loaded from file.';
     setTimeout(()=>{ statusEl.textContent = ''; }, 3000);
+  });
+
+  // ---- Project Save/Load — bundles the loaded audio (every stem, if Stem
+  // Mode is on) plus the full settings text into one .zip, named after the
+  // track. Structural fix for the two-step "re-upload audio, then Load
+  // Settings text separately" flow, where the two can silently drift out of
+  // sync (e.g. loading a settings file for a different stem set than what's
+  // currently loaded). Reuses loadFile()/loadStemFiles() unchanged for the
+  // actual decode+init — this only has to get bytes into a File and call
+  // them, exactly like a real upload would. ----
+  document.getElementById('saveProjectBtn').addEventListener('click', async ()=>{
+    const statusEl = document.getElementById('projectStatus');
+    const tr0 = T[currentLang] || T.en;
+    if(!audioBuffer){
+      statusEl.textContent = tr0.projectSaveNeedTrack || T.en.projectSaveNeedTrack;
+      setTimeout(()=>{ statusEl.textContent = ''; }, 3500);
+      return;
+    }
+    statusEl.textContent = tr0.projectSaving || T.en.projectSaving;
+    const baseName = (fileNameLabel.textContent || 'project').replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]/g, '_').trim() || 'project';
+
+    const files = [];
+    if(stemModeEnabled){
+      if(activeStemSlotId) stemSlots[activeStemSlotId].settings = captureStemState(); // capture the active tab's live edits before reading anything
+      for(const def of STEM_SLOT_DEFS){
+        if(stemSlots[def.id] && stemSlots[def.id].buffer){
+          // filenames are the canonical slot ids on purpose — Load Project
+          // uses that to place each stem back in the exact right slot,
+          // rather than trusting the same keyword guess a raw folder
+          // upload uses (which can't detect Extra at all — see
+          // STEM_SLOT_DEFS's empty keywords for that slot).
+          // audioBufferToWav() returns a Blob, not an ArrayBuffer — need to
+          // read it out before it can go into a zip entry's Uint8Array.
+          const wavBlob = audioBufferToWav(stemSlots[def.id].buffer, 24);
+          files.push({ name: `stems/${def.id}.wav`, data: new Uint8Array(await wavBlob.arrayBuffer()) });
+        }
+      }
+    } else {
+      const wavBlob = audioBufferToWav(audioBuffer, 24);
+      files.push({ name: `${baseName}.wav`, data: new Uint8Array(await wavBlob.arrayBuffer()) });
+    }
+    files.push({ name: 'settings.txt', data: new TextEncoder().encode(getSettingsText()) });
+
+    const blob = buildZip(files);
+    const zipName = `${baseName}_project.zip`;
+
+    if(window.showSaveFilePicker){
+      try{
+        const handle = await window.showSaveFilePicker({
+          suggestedName: zipName,
+          types: [{ description: 'Zip archive', accept: {'application/zip': ['.zip']} }]
+        });
+        const w = await handle.createWritable();
+        await w.write(blob); await w.close();
+        statusEl.textContent = tr0.projectSaved || T.en.projectSaved;
+        setTimeout(()=>{ statusEl.textContent = ''; }, 3000);
+        return;
+      }catch(e){
+        if(e && e.name === 'AbortError'){ statusEl.textContent = ''; return; }
+        console.log('showSaveFilePicker failed, falling back to forced download:', e);
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = zipName; a.click();
+    URL.revokeObjectURL(url);
+    statusEl.textContent = tr0.projectSaved || T.en.projectSaved;
+    setTimeout(()=>{ statusEl.textContent = ''; }, 3000);
+  });
+
+  document.getElementById('loadProjectBtn').addEventListener('click', ()=>{
+    document.getElementById('loadProjectInput').click();
+  });
+  document.getElementById('loadProjectInput').addEventListener('change', async (e)=>{
+    const f = e.target.files && e.target.files[0];
+    e.target.value = ''; // so picking the same file again later still fires 'change'
+    if(!f) return;
+    const statusEl = document.getElementById('projectStatus');
+    const tr0 = T[currentLang] || T.en;
+    statusEl.textContent = tr0.projectLoading || T.en.projectLoading;
+    try{
+      const arrBuf = await f.arrayBuffer();
+      const entries = readZip(arrBuf);
+      const settingsEntry = entries.find(en=> en.name === 'settings.txt');
+      if(!settingsEntry) throw new Error('settings.txt not found inside the zip');
+      const settingsText = new TextDecoder().decode(settingsEntry.data);
+      const stemEntries = entries.filter(en=> en.name.startsWith('stems/') && /\.wav$/i.test(en.name));
+      const singleEntry = entries.find(en=> !en.name.startsWith('stems/') && /\.wav$/i.test(en.name));
+
+      if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+
+      if(stemEntries.length){
+        const stemFiles = stemEntries.map(en=> new File([en.data.slice()], en.name.split('/').pop(), {type:'audio/wav'}));
+        await loadStemFiles(stemFiles);
+        // loadStemFiles()'s keyword auto-assign can't place Extra (its
+        // keyword list is empty by design), so it lands in Others. Since
+        // these filenames ARE the canonical slot ids we wrote them with,
+        // correct any mismatch by exact id via the same reassignStemFile()
+        // the manual reassign dropdown already uses, instead of trusting
+        // the keyword guess for this round trip.
+        STEM_SLOT_DEFS.forEach(def=>{
+          const wantedName = def.id + '.wav';
+          STEM_SLOT_ORDER.forEach(otherId=>{
+            if(otherId === def.id) return;
+            const slot = stemSlots[otherId];
+            const misplaced = slot && slot.files.find(fe=> fe.name === wantedName);
+            if(misplaced) reassignStemFile(otherId, misplaced, def.id);
+          });
+        });
+      } else if(singleEntry){
+        const file = new File([singleEntry.data.slice()], singleEntry.name, {type:'audio/wav'});
+        await loadFile(file);
+      } else {
+        throw new Error('No audio found inside the zip');
+      }
+
+      const snap = parseSettingsText(settingsText);
+      applySettingsSnapshot(snap);
+      statusEl.textContent = tr0.projectLoaded || T.en.projectLoaded;
+      setTimeout(()=>{ statusEl.textContent = ''; }, 3000);
+    }catch(err){
+      console.log('[project] load failed:', err);
+      const msg = (err && err.message) || String(err);
+      statusEl.textContent = (tr0.projectLoadError || T.en.projectLoadError)(msg);
+      setTimeout(()=>{ statusEl.textContent = ''; }, 5000);
+    }
   });
 
   // ---- genre (4 layers: Core/Era/Groove/Twist) + vibe (4 layers: Texture/
@@ -3568,6 +3834,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     snap.presetValue = document.getElementById('presetSelect').value;
     snap.vibeTags = collectLayerValues(VIBE_LAYER_IDS);
     snap.vibeBase = vibeBaseSnapshot ? {...vibeBaseSnapshot} : null;
+    snap.genreTags = collectLayerValues(GENRE_LAYER_IDS);
     return snap;
   }
 
@@ -3593,6 +3860,17 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         c.disabled = atMax && !c.classList.contains('active');
       });
     });
+    if(snap.genreTags){
+      GENRE_LAYER_IDS.forEach(id=>{
+        document.querySelectorAll('#'+id+' .layer-chip').forEach(chip=>{
+          chip.classList.toggle('active', snap.genreTags.includes(chip.dataset.value));
+        });
+        const atMax = document.querySelectorAll('#'+id+' .layer-chip.active').length >= LAYER_MAX;
+        document.querySelectorAll('#'+id+' .layer-chip').forEach(c=>{
+          c.disabled = atMax && !c.classList.contains('active');
+        });
+      });
+    }
     vibeBaseSnapshot = snap.vibeBase ? {...snap.vibeBase} : null;
     restoringSnapshot = false;
     applyAllParams();
@@ -3618,6 +3896,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     snap.presetValue = document.getElementById('presetSelect').value;
     snap.vibeTags = collectLayerValues(VIBE_LAYER_IDS);
     snap.vibeBase = vibeBaseSnapshot ? {...vibeBaseSnapshot} : null;
+    snap.genreTags = collectLayerValues(GENRE_LAYER_IDS);
     return snap;
   }
 
@@ -3643,6 +3922,17 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         c.disabled = atMax && !c.classList.contains('active');
       });
     });
+    if(snap.genreTags){
+      GENRE_LAYER_IDS.forEach(id=>{
+        document.querySelectorAll('#'+id+' .layer-chip').forEach(chip=>{
+          chip.classList.toggle('active', snap.genreTags.includes(chip.dataset.value));
+        });
+        const atMax = document.querySelectorAll('#'+id+' .layer-chip.active').length >= LAYER_MAX;
+        document.querySelectorAll('#'+id+' .layer-chip').forEach(c=>{
+          c.disabled = atMax && !c.classList.contains('active');
+        });
+      });
+    }
     vibeBaseSnapshot = snap.vibeBase ? {...snap.vibeBase} : null;
     restoringSnapshot = false;
     applyAllParams();
@@ -3946,6 +4236,11 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     audioBuffer = stemSlots[firstSlotId].buffer; // set before initGraph, matches loadFile()'s ordering
     initGraph();
     document.getElementById('dlBtn').disabled = false;
+    // loadFile() (single-track path) sets this too — loadStemFiles() had
+    // been missing it entirely, so the button stayed stuck at whatever
+    // .disabled state it was already in (the HTML default, or `true` from a
+    // prior resetAll()) no matter how much mastering got run in stem mode.
+    document.getElementById('dlBundleBtn').disabled = !(window.showDirectoryPicker || window.showSaveFilePicker);
     masteredBuffer = null;
     waveEmptyB.style.display = 'flex';
     waveCtxB.clearRect(0,0,waveCanvasB.width, waveCanvasB.height);
@@ -4117,6 +4412,31 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     audioBuffer = restoreBuffer; // restore right away so everything else (Run Mastering, tab switches) still refers to the active stem
   });
 
+  // Compromise between a full N-graph live multi-stem preview (out of scope
+  // — see CLAUDE.md) and only being able to hear the master via Run/Final
+  // Mastering: render once (renderMaster() delegates to renderMasterStems()
+  // in stem mode automatically), then play that buffer through the SAME
+  // "already fully processed, don't reprocess it live" trick Play Full Mix
+  // uses (mode 'A' = dry passthrough in connectChain(), so nothing in the
+  // live EQ/Comp/Limiter graph gets applied a second time on top).
+  // Deliberately does NOT touch masteredBuffer/waveform B/Edit Log — those
+  // belong to the actual Run Mastering button; this is just a listen.
+  document.getElementById('stemsPlayMasteredMixBtn').addEventListener('click', async ()=>{
+    if(!audioBuffer) return;
+    if(isPlaying) stopPlayback(true);
+    const btn = document.getElementById('stemsPlayMasteredMixBtn');
+    const tr0 = T[currentLang] || T.en;
+    const originalLabel = btn.textContent;
+    btn.disabled = true; btn.textContent = tr0.rendering || T.en.rendering;
+    const rendered = await renderMaster();
+    btn.disabled = false; btn.textContent = originalLabel;
+    const restoreBuffer = activeStemSlotId ? stemSlots[activeStemSlotId].buffer : audioBuffer;
+    audioBuffer = rendered;
+    setMode('A');
+    startPlayback(0);
+    audioBuffer = restoreBuffer;
+  });
+
   // Master Bus glue controls — plain inputs (not run through bindPair(),
   // which is wired to the fixed SETTINGS_SLIDER_KEYS/GR-meter card
   // machinery) since these are new, stem-mode-only values read directly by
@@ -4126,9 +4446,36 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const evt = el.type==='checkbox' ? 'change' : (el.tagName==='SELECT' ? 'change' : 'input');
     el.addEventListener(evt, ()=>{
       invalidateMaster();
-      scheduleHistoryPush('Manual edit');
+      scheduleHistoryPush('Manual edit', true);
     });
   });
+  // Number-input companions for the bus glue sliders above — these had no
+  // way to see or type an exact value, only drag a bare <input type=range>.
+  // Lighter-weight than bindPair() (no decimals/tag-format params, no
+  // applyAllParams() call — these values are read directly by
+  // renderMasterStems() at render time, not part of the live single-graph
+  // param path). Reuses the slider's own 'input' listener above for
+  // invalidateMaster()/history by dispatching a synthetic 'input' event
+  // after the number field pushes a value onto the slider, instead of
+  // duplicating that logic here.
+  function bindBusNumPair(key){
+    const s = document.getElementById(key+'Slider');
+    const n = document.getElementById(key+'Num');
+    if(!s || !n) return;
+    n.value = Math.round(parseFloat(s.value));
+    s.addEventListener('input', ()=>{ n.value = Math.round(parseFloat(s.value)); });
+    n.addEventListener('change', ()=>{
+      let v = parseFloat(n.value);
+      if(isNaN(v)) v = parseFloat(s.value);
+      v = Math.min(parseFloat(s.max), Math.max(parseFloat(s.min), v));
+      s.value = v; n.value = Math.round(v);
+      s.dispatchEvent(new Event('input'));
+    });
+  }
+  bindBusNumPair('busSatAmount');
+  bindBusNumPair('busSatMix');
+  bindBusNumPair('duckAmount');
+  bindBusNumPair('duckRelease');
 
   // ---- waveform ----
   const waveCanvasA = document.getElementById('waveCanvasA');
@@ -6686,6 +7033,49 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     return new Blob([...localParts, ...centralParts, new Uint8Array(end.buffer)], { type: 'application/zip' });
   }
 
+  // ---- Minimal zip READER — the counterpart to buildZip() above, for
+  // Project Save/Load (see that section further down). Deliberately only
+  // handles store/uncompressed entries (method 0), which is all buildZip()
+  // ever produces — this is a round trip with OUR OWN writer, not a general
+  // DEFLATE-capable unzip, so there's no decompression to implement. Real
+  // third-party zips (e.g. arbitrary DEFLATE-compressed archives) are out of
+  // scope here on purpose — see CLAUDE.md's "스템 zip 업로드" note for why
+  // that's a separate, much riskier piece of work.
+  function readZip(arrayBuffer){
+    const bytes = new Uint8Array(arrayBuffer);
+    const view = new DataView(arrayBuffer);
+    // buildZip() never writes a comment, so the End Of Central Directory
+    // record is always exactly the last 22 bytes — no need to scan for it.
+    const eocdOffset = bytes.length - 22;
+    if(eocdOffset < 0 || view.getUint32(eocdOffset, true) !== 0x06054b50){
+      throw new Error('Not a recognizable zip file (or an unsupported/compressed one)');
+    }
+    const numEntries = view.getUint16(eocdOffset + 10, true);
+    let centralOffset = view.getUint32(eocdOffset + 16, true);
+    const entries = [];
+    const decoder = new TextDecoder();
+    for(let i=0; i<numEntries; i++){
+      if(view.getUint32(centralOffset, true) !== 0x02014b50) throw new Error('Corrupt zip central directory');
+      const method = view.getUint16(centralOffset + 10, true);
+      const size = view.getUint32(centralOffset + 24, true);
+      const nameLen = view.getUint16(centralOffset + 28, true);
+      const extraLen = view.getUint16(centralOffset + 30, true);
+      const commentLen = view.getUint16(centralOffset + 32, true);
+      const localOffset = view.getUint32(centralOffset + 42, true);
+      const name = decoder.decode(bytes.subarray(centralOffset + 46, centralOffset + 46 + nameLen));
+      if(method !== 0) throw new Error(`"${name}" is compressed (this reader only supports uncompressed/store entries)`);
+      // jump to the local header to find where the actual file data starts
+      // (its own name/extra field lengths can differ in principle, so read
+      // them fresh rather than assuming they match the central directory)
+      const localNameLen = view.getUint16(localOffset + 26, true);
+      const localExtraLen = view.getUint16(localOffset + 28, true);
+      const dataStart = localOffset + 30 + localNameLen + localExtraLen;
+      entries.push({ name, data: bytes.subarray(dataStart, dataStart + size) });
+      centralOffset += 46 + nameLen + extraLen + commentLen;
+    }
+    return entries;
+  }
+
   // resample a rendered buffer to a new sample rate by playing it through an
   // OfflineAudioContext running at that rate (browser handles the resampling)
   async function resampleBuffer(buf, targetRate){
@@ -6813,6 +7203,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       stemSlotVocal: 'Vocal', stemSlotBass: 'Bass', stemSlotDrums: 'Drums & Percussion', stemSlotExtra: 'Extra', stemSlotOthers: 'Others',
       btnPlayFullMix: '🔊 Play Full Mix',
       stemsFullMixHint: 'Plays every stem summed together, unprocessed — a quick reference for what the raw combined song sounds like.',
+      btnPlayMasteredMix: '🎧 Play Mastered Mix',
+      stemsMasteredMixHint: "Renders the full stem chain + Master Bus once, then plays the result immediately — not a live graph, so moving a slider while it's playing won't change what you hear until you click it again.",
       panelMasterBus: 'Master Bus (shared)',
       masterBusHint: 'The Bass Protect / Compressor / Loudness cards below always control this one shared bus, applied once after every stem is summed — they don\'t switch per stem tab like EQ/Saturation/De-Harsher/Width do.',
       busSatEnableLabel: 'Bus Saturation (glue)', busSatDriveLabel: 'Drive %', busSatMixLabel: 'Mix %',
@@ -6866,6 +7258,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       btnSaveCurrent: '💾 Save Current', btnLoad: 'Load', btnDelete: 'Delete',
       myPresetSelectPlaceholder: '— Saved presets —',
       btnSaveToFile: '💾 Save Settings to File…', btnLoadFromFile: '📂 Load Settings from File…', btnCopyClipboard: '📋 Copy to Clipboard',
+      btnSaveProject: '💿 Save Project (.zip)', btnLoadProject: '📂 Load Project (.zip)',
+      projectNote: "Bundles the loaded audio (all stems, if Stem Mode is on) plus every setting — EQ, Genre/Vibe/Preset, Bus Saturation, Sidechain Duck, the works — into one .zip named after the track, so re-uploading audio and loading settings text separately (and the risk of the two getting out of sync) isn't necessary. Load Project restores everything in one step.",
+      projectSaveNeedTrack: "Upload a track first — there's nothing to bundle into a project yet.",
+      projectSaving: 'Building project…', projectSaved: 'Project saved.',
+      projectLoading: 'Loading project…', projectLoaded: 'Project loaded.',
+      projectLoadError: (msg) => `Could not load that project: ${msg}`,
       panelEnvelopeViewer: 'Envelope / Sustain Viewer',
       envViewerNote: 'Zooms into a short window and overlays a chosen frequency band\'s envelope (attack + decay shape) for Original vs Master — the same "did the sustain get chopped shorter" check used to diagnose over-compression by ear. Needs a Master (Run Mastering) to compare against.',
       envBandLabel: 'Band', envBandLow: 'Low (20–250 Hz)', envBandMid: 'Mid (250–4000 Hz)', envBandHigh: 'High (4000 Hz+)', envBandFull: 'Full Mix',
@@ -7057,6 +7455,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       stemSlotVocal: 'Vocal', stemSlotBass: 'Bass', stemSlotDrums: '드럼 & 퍼커션', stemSlotExtra: 'Extra', stemSlotOthers: 'Others',
       btnPlayFullMix: '🔊 전체 합본 재생',
       stemsFullMixHint: '모든 스템을 무가공으로 합쳐서 재생해요 — 원곡 전체가 어떤 느낌인지 빠르게 참고할 때 써요.',
+      btnPlayMasteredMix: '🎧 마스터링 결과 재생',
+      stemsMasteredMixHint: '전체 스템 체인 + Master Bus를 한 번 렌더링한 뒤 바로 재생해요 — 라이브 그래프가 아니라서, 재생 중에 슬라이더를 만져도 다시 누르기 전까진 소리가 안 바뀌어요.',
       panelMasterBus: 'Master Bus (공유)',
       masterBusHint: '아래 Bass Protect / Compressor / Loudness 카드는 항상 이 하나의 공유 버스를 조절해요 — 모든 스템이 합쳐진 뒤 딱 한 번 적용되고, EQ/Saturation/De-Harsher/Width처럼 스템 탭마다 바뀌지 않아요.',
       busSatEnableLabel: '버스 Saturation (글루)', busSatDriveLabel: 'Drive %', busSatMixLabel: 'Mix %',
@@ -7110,6 +7510,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       btnSaveCurrent: '💾 현재값 저장', btnLoad: '불러오기', btnDelete: '삭제',
       myPresetSelectPlaceholder: '— 저장된 프리셋 —',
       btnSaveToFile: '💾 파일로 설정 저장…', btnLoadFromFile: '📂 파일에서 설정 불러오기…', btnCopyClipboard: '📋 클립보드에 복사',
+      btnSaveProject: '💿 프로젝트 저장 (.zip)', btnLoadProject: '📂 프로젝트 불러오기 (.zip)',
+      projectNote: '로드된 오디오(Stem Mode면 스템 전부)와 EQ/Genre·Vibe·프리셋/버스 Saturation/Sidechain Duck 등 모든 설정을 곡 이름으로 된 zip 파일 하나에 묶어요 — 오디오 재업로드와 설정 텍스트 불러오기를 따로 하다가 둘이 서로 안 맞게 될 위험이 없어요. Load Project 한 번이면 전부 그대로 복원돼요.',
+      projectSaveNeedTrack: '먼저 트랙을 업로드해주세요 — 아직 프로젝트로 묶을 게 없어요.',
+      projectSaving: '프로젝트 만드는 중…', projectSaved: '프로젝트가 저장됐어요.',
+      projectLoading: '프로젝트 불러오는 중…', projectLoaded: '프로젝트를 불러왔어요.',
+      projectLoadError: (msg) => `프로젝트를 불러오지 못했어요: ${msg}`,
       panelEnvelopeViewer: '엔벨로프 / 서스테인 뷰어',
       envViewerNote: '짧은 구간을 확대해서, 고른 주파수 대역의 엔벨로프(어택+디케이 모양)를 원본과 마스터로 겹쳐 보여줍니다 — 과압축으로 서스테인이 짧아졌는지 귀 대신 눈으로 확인하는 도구예요. 비교하려면 먼저 Run Mastering으로 마스터를 만들어야 합니다.',
       envBandLabel: '대역', envBandLow: '저역 (20–250 Hz)', envBandMid: '중역 (250–4000 Hz)', envBandHigh: '고역 (4000 Hz+)', envBandFull: '전체 믹스',
@@ -7301,6 +7707,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       stemSlotVocal: 'Vocal', stemSlotBass: 'Bass', stemSlotDrums: 'Bateria y Percusion', stemSlotExtra: 'Extra', stemSlotOthers: 'Otros',
       btnPlayFullMix: '🔊 Reproducir Mezcla Completa',
       stemsFullMixHint: 'Reproduce todos los stems sumados sin procesar — una referencia rapida de como suena la cancion combinada en crudo.',
+      btnPlayMasteredMix: '🎧 Reproducir Mezcla Masterizada',
+      stemsMasteredMixHint: 'Renderiza toda la cadena de stems + Master Bus una vez, y reproduce el resultado de inmediato — no es un grafo en vivo, asi que mover un slider mientras suena no cambia nada hasta que lo pulses de nuevo.',
       panelMasterBus: 'Master Bus (compartido)',
       masterBusHint: 'Las tarjetas de Bass Protect / Compresor / Loudness de abajo siempre controlan este unico bus compartido, aplicado una vez que se suman todos los stems — no cambian por pestana de stem como si lo hacen EQ/Saturacion/De-Harsher/Ancho.',
       busSatEnableLabel: 'Saturacion de Bus (glue)', busSatDriveLabel: 'Drive %', busSatMixLabel: 'Mix %',
@@ -7354,6 +7762,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       btnSaveCurrent: '💾 Guardar Actual', btnLoad: 'Cargar', btnDelete: 'Eliminar',
       myPresetSelectPlaceholder: '— Preajustes guardados —',
       btnSaveToFile: '💾 Guardar Ajustes en Archivo…', btnLoadFromFile: '📂 Cargar Ajustes desde Archivo…', btnCopyClipboard: '📋 Copiar al Portapapeles',
+      btnSaveProject: '💿 Guardar Proyecto (.zip)', btnLoadProject: '📂 Cargar Proyecto (.zip)',
+      projectNote: 'Agrupa el audio cargado (todos los stems, si Stem Mode esta activo) mas cada ajuste — EQ, Genre/Vibe/Preset, Saturacion de Bus, Sidechain Duck, todo — en un solo .zip con el nombre de la pista, para que no haga falta volver a subir el audio y cargar el texto de ajustes por separado (con el riesgo de que ambos queden desincronizados). Load Project restaura todo en un solo paso.',
+      projectSaveNeedTrack: 'Sube una pista primero — todavia no hay nada que agrupar en un proyecto.',
+      projectSaving: 'Creando proyecto…', projectSaved: 'Proyecto guardado.',
+      projectLoading: 'Cargando proyecto…', projectLoaded: 'Proyecto cargado.',
+      projectLoadError: (msg) => `No se pudo cargar ese proyecto: ${msg}`,
       panelEnvelopeViewer: 'Visor de Envolvente / Sustain',
       envViewerNote: 'Amplía una ventana corta y superpone la envolvente (forma de ataque + decaimiento) de una banda de frecuencia elegida para Original vs Máster — la misma comprobación de "¿se acortó el sustain?" usada para diagnosticar la sobrecompresión a simple vista. Necesita un Máster (Run Mastering) para comparar.',
       envBandLabel: 'Banda', envBandLow: 'Graves (20–250 Hz)', envBandMid: 'Medios (250–4000 Hz)', envBandHigh: 'Agudos (4000 Hz+)', envBandFull: 'Mezcla Completa',
@@ -7545,6 +7959,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       stemSlotVocal: 'Vocal', stemSlotBass: 'Bass', stemSlotDrums: 'ドラム&パーカッション', stemSlotExtra: 'Extra', stemSlotOthers: 'Others',
       btnPlayFullMix: '🔊 フルミックスを再生',
       stemsFullMixHint: '全ステムを未処理のまま合成して再生します — 元の曲全体がどんな感じか素早く確認できます。',
+      btnPlayMasteredMix: '🎧 マスタリング結果を再生',
+      stemsMasteredMixHint: 'ステムチェーン全体＋Master Busを一度レンダリングしてから即座に再生します — ライブグラフではないので、再生中にスライダーを動かしても、もう一度クリックするまで音は変わりません。',
       panelMasterBus: 'Master Bus(共有)',
       masterBusHint: '下のBass Protect／コンプレッサー／Loudnessカードは常にこの1つの共有バスを制御します — 全ステムが合成された後に一度だけ適用され、EQ／サチュレーション／De-Harsher／Widthのようにステムタブごとには切り替わりません。',
       busSatEnableLabel: 'バスサチュレーション(グルー)', busSatDriveLabel: 'Drive %', busSatMixLabel: 'Mix %',
@@ -7598,6 +8014,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       btnSaveCurrent: '💾 現在の設定を保存', btnLoad: '読み込み', btnDelete: '削除',
       myPresetSelectPlaceholder: '— 保存済みプリセット —',
       btnSaveToFile: '💾 設定をファイルに保存…', btnLoadFromFile: '📂 ファイルから設定を読み込み…', btnCopyClipboard: '📋 クリップボードにコピー',
+      btnSaveProject: '💿 プロジェクトを保存 (.zip)', btnLoadProject: '📂 プロジェクトを読み込み (.zip)',
+      projectNote: '読み込み済みのオーディオ(Stem Modeがオンならすべてのステム)と、EQ／Genre・Vibe・プリセット／バスサチュレーション／サイドチェーンダッキングなどすべての設定を、曲名を付けた1つのzipにまとめます — オーディオの再アップロードと設定テキストの読み込みを別々に行って両者がずれてしまう心配がありません。Load Projectを1回実行するだけですべて復元されます。',
+      projectSaveNeedTrack: '先にトラックをアップロードしてください — まだプロジェクトにまとめるものがありません。',
+      projectSaving: 'プロジェクトを作成中…', projectSaved: 'プロジェクトを保存しました。',
+      projectLoading: 'プロジェクトを読み込み中…', projectLoaded: 'プロジェクトを読み込みました。',
+      projectLoadError: (msg) => `このプロジェクトを読み込めませんでした: ${msg}`,
       panelEnvelopeViewer: 'エンベロープ / サステインビューア',
       envViewerNote: '短い区間を拡大して、選んだ周波数帯域のエンベロープ(アタック+ディケイの形)をOriginalとMasterで重ねて表示します — 過圧縮でサステインが短くなっていないか、耳ではなく目で確認するツールです。比較するにはまずRun MasteringでMasterを作成してください。',
       envBandLabel: '帯域', envBandLow: '低域 (20–250 Hz)', envBandMid: '中域 (250–4000 Hz)', envBandHigh: '高域 (4000 Hz+)', envBandFull: 'フルミックス',
@@ -7789,6 +8211,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       stemSlotVocal: 'Vocal', stemSlotBass: 'Bass', stemSlotDrums: '鼓组与打击乐', stemSlotExtra: 'Extra', stemSlotOthers: '其他',
       btnPlayFullMix: '🔊 播放完整混音',
       stemsFullMixHint: '播放所有分轨未经处理的合成结果 — 快速参考原始合并歌曲的听感。',
+      btnPlayMasteredMix: '🎧 播放母带结果',
+      stemsMasteredMixHint: '将整个分轨处理链＋Master Bus渲染一次，然后立即播放结果 — 这不是实时图形，所以播放期间拖动滑块不会改变声音，需要再次点击才会生效。',
       panelMasterBus: 'Master Bus(共享)',
       masterBusHint: '下方的Bass Protect／压缩器／Loudness卡片始终控制这一个共享总线 — 在所有分轨合并后统一应用一次，不会像EQ／饱和／De-Harsher／宽度那样按分轨标签切换。',
       busSatEnableLabel: '总线饱和(glue)', busSatDriveLabel: 'Drive %', busSatMixLabel: 'Mix %',
@@ -7842,6 +8266,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       btnSaveCurrent: '💾 保存当前设置', btnLoad: '加载', btnDelete: '删除',
       myPresetSelectPlaceholder: '— 已保存的预设 —',
       btnSaveToFile: '💾 将设置保存为文件…', btnLoadFromFile: '📂 从文件加载设置…', btnCopyClipboard: '📋 复制到剪贴板',
+      btnSaveProject: '💿 保存项目 (.zip)', btnLoadProject: '📂 加载项目 (.zip)',
+      projectNote: '将已加载的音频(如果开启了Stem Mode，则包含所有分轨)以及每一项设置 — EQ、Genre/Vibe/预设、总线饱和、侧链闪避等全部内容 — 打包进一个以曲目命名的.zip文件中，这样就不必分别重新上传音频和加载设置文本(也避免了两者不同步的风险)。点击Load Project即可一步恢复全部内容。',
+      projectSaveNeedTrack: '请先上传一个音轨 — 目前还没有可以打包成项目的内容。',
+      projectSaving: '正在生成项目…', projectSaved: '项目已保存。',
+      projectLoading: '正在加载项目…', projectLoaded: '项目已加载。',
+      projectLoadError: (msg) => `无法加载该项目: ${msg}`,
       panelEnvelopeViewer: '包络 / 延音查看器',
       envViewerNote: '放大一小段区间，将所选频段的包络(起音+衰减形状)在Original与Master之间叠加显示 — 这正是用来诊断过度压缩、"延音是否被削短"的可视化检查方式，无需只靠耳朵判断。需要先Run Mastering生成Master才能比较。',
       envBandLabel: '频段', envBandLow: '低频 (20–250 Hz)', envBandMid: '中频 (250–4000 Hz)', envBandHigh: '高频 (4000 Hz+)', envBandFull: '完整混音',
