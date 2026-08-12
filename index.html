@@ -481,6 +481,11 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     position:absolute; top:0; bottom:0; width:14px; margin-left:-7px; left:50%;
     cursor:ew-resize; z-index:5;
   }
+  .env-select-box{
+    position:absolute; top:0; bottom:0; left:0; width:0; display:none;
+    background:rgba(79,214,196,0.18); border-left:1px solid rgba(79,214,196,0.7);
+    border-right:1px solid rgba(79,214,196,0.7); pointer-events:none; z-index:4;
+  }
   .split-marker::before{
     content:''; position:absolute; top:0; bottom:0; left:6px; width:2px;
     background:#c792ea; box-shadow:0 0 6px #c792ea;
@@ -1288,6 +1293,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
               <canvas id="waveCanvasA"></canvas>
               <div class="wave-playhead" id="wavePlayheadA"></div>
               <div class="split-marker hidden" id="splitMarkerA"></div>
+              <div class="env-select-box" id="envSelectBoxA"></div>
             </div>
           </div>
 
@@ -1297,6 +1303,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
               <canvas id="waveCanvasB"></canvas>
               <div class="wave-playhead" id="wavePlayheadB"></div>
               <div class="split-marker hidden" id="splitMarkerB"></div>
+              <div class="env-select-box" id="envSelectBoxB"></div>
               <div class="wave-empty" id="waveEmptyB">Click Run Mastering to see the result waveform here</div>
             </div>
           </div>
@@ -1650,7 +1657,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
 
     <div class="panel">
       <div class="panel-title" data-i18n="panelEnvelopeViewer">Envelope / Sustain Viewer</div>
-      <div class="note" style="margin-bottom:10px;" data-i18n="envViewerNote">Zooms into a short window and overlays a chosen frequency band's envelope (attack + decay shape) for Original vs Master — the same "did the sustain get chopped shorter" check used to diagnose over-compression by ear. Needs a Master (Run Mastering) to compare against.</div>
+      <div class="note" style="margin-bottom:10px;" data-i18n="envViewerNote">Zooms into a short window and overlays a chosen frequency band's envelope (attack + decay shape) for Original vs Master — the same "did the sustain get chopped shorter" check used to diagnose over-compression by ear. Needs a Master (Run Mastering) to compare against. Tip: instead of typing Start/Duration below, you can drag directly across either waveform above to pick the window.</div>
       <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px;">
         <label style="font-size:12.5px; color:var(--text-dim); display:flex; flex-direction:column; gap:4px;"><span data-i18n="envBandLabel">Band</span>
           <select id="envBandSelect" style="background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:7px 9px; font-size:12.5px;">
@@ -1680,6 +1687,21 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       </div>
       <div class="note" style="margin-top:8px;" data-i18n="envClickHint">🖱 Click anywhere on the chart to hear the rendered Master starting from that point — handy for checking what a flagged (red) stretch actually sounds like.</div>
       <div id="envStats" style="margin-top:10px; font-family:var(--mono); font-size:12px; color:var(--text-dim);"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title" data-i18n="panelReference">Reference Track A/B</div>
+      <div class="note" style="margin-bottom:10px;" data-i18n="refNote">Drop a reference track (a commercial release, a favorite mix — anything you're aiming for) and A/B it against your Master at matched loudness, so you're comparing tone and character instead of just "which one is louder." The reference itself is never modified or uploaded anywhere — only played back locally, gain-adjusted for the comparison.</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button class="dl-btn" id="refPickBtn" style="width:auto; padding:9px 16px;" data-i18n="btnRefPick">🎯 Load Reference Track…</button>
+        <input type="file" id="refTrackInput" accept="audio/*">
+        <span id="refTrackName" style="font-size:12px; color:var(--text-dim);"></span>
+      </div>
+      <div id="refAbControls" class="hidden" style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button class="dl-btn" id="refPlayMasterBtn" style="width:auto; padding:9px 16px; background:var(--panel-2); color:var(--accent); border:1px solid var(--accent);" data-i18n="btnRefPlayMaster">▶ Play Master</button>
+        <button class="dl-btn" id="refPlayRefBtn" style="width:auto; padding:9px 16px; background:var(--panel-2); color:var(--accent); border:1px solid var(--accent);" data-i18n="btnRefPlayRef">▶ Play Reference</button>
+      </div>
+      <div id="refTrackStatus" style="margin-top:8px; font-size:11.5px; color:var(--text-dim);"></div>
     </div>
 
     <div class="panel">
@@ -2599,6 +2621,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       waveCtxB.clearRect(0,0,waveCanvasB.width, waveCanvasB.height);
     }
     if(lastMeasuredLufs != null) updateDownloadSuggestions(lastMeasuredLufs);
+    if(typeof invalidateReferenceMatch === 'function') invalidateReferenceMatch(); // a stale Master loudness would silently mismatch the Reference A/B gain
   }
 
   // ---- generic slider <-> number-input binding ----
@@ -4549,8 +4572,62 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     pausedAt = seekTo;
     startPlayback(seekTo);
   }
-  waveWrapA.addEventListener('click', (e)=> seekFromWrap(waveWrapA, 'A', e));
-  waveWrapB.addEventListener('click', (e)=> seekFromWrap(waveWrapB, 'B', e));
+  // envDragJustHappened lets bindEnvDragSelect() (below) suppress the
+  // seek-on-click behavior for the one click event that follows a genuine
+  // drag — a plain click (no real movement) still seeks exactly as before.
+  let envDragJustHappened = false;
+  waveWrapA.addEventListener('click', (e)=>{
+    if(envDragJustHappened){ envDragJustHappened = false; return; }
+    seekFromWrap(waveWrapA, 'A', e);
+  });
+  waveWrapB.addEventListener('click', (e)=>{
+    if(envDragJustHappened){ envDragJustHappened = false; return; }
+    seekFromWrap(waveWrapB, 'B', e);
+  });
+
+  // ---- Envelope Viewer drag-select: drag directly across either waveform
+  // to pick the analysis window instead of typing Start/Duration by hand.
+  // Reuses seekFromWrap()'s rect+audioBuffer.duration geometry for the
+  // pixel<->seconds conversion. Below the movement threshold, nothing about
+  // the existing click-to-seek path changes. ----
+  function bindEnvDragSelect(wrap, boxEl){
+    let dragging = false, startX = 0, startRatio = 0, moved = false;
+    wrap.addEventListener('mousedown', (e)=>{
+      if(!audioBuffer) return;
+      dragging = true; moved = false;
+      const rect = wrap.getBoundingClientRect();
+      startX = e.clientX;
+      startRatio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    });
+    window.addEventListener('mousemove', (e)=>{
+      if(!dragging) return;
+      if(Math.abs(e.clientX - startX) > 4) moved = true;
+      if(!moved) return;
+      const rect = wrap.getBoundingClientRect();
+      const curRatio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      const lo = Math.min(startRatio, curRatio), hi = Math.max(startRatio, curRatio);
+      boxEl.style.display = 'block';
+      boxEl.style.left = (lo*100) + '%';
+      boxEl.style.width = ((hi-lo)*100) + '%';
+    });
+    window.addEventListener('mouseup', (e)=>{
+      if(!dragging) return;
+      dragging = false;
+      boxEl.style.display = 'none';
+      if(!moved || !audioBuffer) return;
+      const rect = wrap.getBoundingClientRect();
+      const curRatio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      const lo = Math.min(startRatio, curRatio), hi = Math.max(startRatio, curRatio);
+      const startSec = lo * audioBuffer.duration;
+      const durSec = (hi - lo) * audioBuffer.duration;
+      document.getElementById('envStart').value = startSec.toFixed(1);
+      document.getElementById('envDur').value = Math.min(60, Math.max(1, Math.round(durSec)));
+      envDragJustHappened = true;
+      renderEnvelopeView();
+    });
+  }
+  bindEnvDragSelect(waveWrapA, document.getElementById('envSelectBoxA'));
+  bindEnvDragSelect(waveWrapB, document.getElementById('envSelectBoxB'));
 
   window.addEventListener('resize', ()=>{
     if(audioBuffer) drawWaveform(audioBuffer, waveCanvasA, waveWrapA, waveCtxA, 'rgba(79,214,196,0.85)');
@@ -6459,6 +6536,99 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     return finalSet.reduce((a,b)=>a+b,0)/finalSet.length;
   }
 
+  // ---- Reference Track A/B — drop a reference (a commercial release, a
+  // favorite mix) and compare it against the Master at matched loudness, so
+  // the ear is judging tone/character rather than "which one is louder"
+  // (loudness bias is the single biggest confound in A/B listening). Keeps
+  // the reference itself untouched — only a loudness-matched COPY ever gets
+  // played, built once and cached until a new reference is loaded or the
+  // Master changes underneath it. ----
+  let referenceBuffer = null, referenceLufs = null, referenceMatchedBuffer = null;
+
+  function invalidateReferenceMatch(){ referenceMatchedBuffer = null; }
+
+  async function buildReferenceMatchedBuffer(){
+    if(!referenceBuffer) return null;
+    const targetBuffer = masteredBuffer || audioBuffer;
+    if(!targetBuffer) return referenceBuffer;
+    // reuse the already-measured Master LUFS if we have one on hand instead
+    // of re-running the block-loudness scan for no reason
+    const targetLufs = (masteredBuffer && lastMeasuredLufs != null) ? lastMeasuredLufs : await estimateIntegratedLufs(targetBuffer);
+    const gainLin = Math.pow(10, (targetLufs - referenceLufs) / 20);
+    const out = audioCtx.createBuffer(referenceBuffer.numberOfChannels, referenceBuffer.length, referenceBuffer.sampleRate);
+    for(let c=0; c<referenceBuffer.numberOfChannels; c++){
+      const src = referenceBuffer.getChannelData(c);
+      const dst = out.getChannelData(c);
+      for(let i=0; i<src.length; i++) dst[i] = Math.max(-1, Math.min(1, src[i]*gainLin));
+    }
+    return out;
+  }
+
+  // Both playback buttons reuse the exact "swap audioBuffer, dry-passthrough
+  // via mode 'A', restore audioBuffer" trick Play Full Mix/Play Mastered Mix
+  // already use — mode 'A' means connectChain() sends the signal straight
+  // through with no live EQ/Comp/Limiter reprocessing, which matters here
+  // since both buffers are already fully "finished" (one is literally the
+  // Master render, the other is a loudness-matched copy of someone else's
+  // finished master).
+  async function playBufferDry(buf){
+    if(!buf) return;
+    if(isPlaying) stopPlayback(true);
+    const restoreBuffer = audioBuffer;
+    audioBuffer = buf;
+    setMode('A');
+    startPlayback(0);
+    audioBuffer = restoreBuffer;
+  }
+
+  document.getElementById('refPickBtn').addEventListener('click', ()=> document.getElementById('refTrackInput').click());
+  document.getElementById('refTrackInput').addEventListener('change', async (e)=>{
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if(!f) return;
+    const statusEl = document.getElementById('refTrackStatus');
+    const tr0 = T[currentLang] || T.en;
+    statusEl.textContent = tr0.refLoading || T.en.refLoading;
+    document.getElementById('refAbControls').classList.add('hidden');
+    try{
+      if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      const arrBuf = await f.arrayBuffer();
+      referenceBuffer = await audioCtx.decodeAudioData(arrBuf);
+      referenceLufs = await estimateIntegratedLufs(referenceBuffer);
+      referenceMatchedBuffer = null;
+      document.getElementById('refTrackName').textContent = f.name;
+      statusEl.textContent = (tr0.refLoaded || T.en.refLoaded)(referenceLufs.toFixed(1));
+      document.getElementById('refAbControls').classList.remove('hidden');
+    }catch(err){
+      console.log('[reference] decode failed:', err);
+      referenceBuffer = null; referenceLufs = null; referenceMatchedBuffer = null;
+      statusEl.textContent = tr0.refDecodeError || T.en.refDecodeError;
+    }
+  });
+  document.getElementById('refPlayMasterBtn').addEventListener('click', async ()=>{
+    if(!audioBuffer) return;
+    const btn = document.getElementById('refPlayMasterBtn');
+    const tr0 = T[currentLang] || T.en;
+    const origLabel = btn.textContent;
+    btn.disabled = true; btn.textContent = tr0.rendering || T.en.rendering;
+    const rendered = masteredBuffer || await renderMaster();
+    btn.disabled = false; btn.textContent = origLabel;
+    invalidateReferenceMatch(); // Master may have just been (re)rendered — any cached match is now against stale loudness
+    playBufferDry(rendered);
+  });
+  document.getElementById('refPlayRefBtn').addEventListener('click', async ()=>{
+    if(!referenceBuffer) return;
+    const btn = document.getElementById('refPlayRefBtn');
+    const tr0 = T[currentLang] || T.en;
+    const origLabel = btn.textContent;
+    if(!referenceMatchedBuffer){
+      btn.disabled = true; btn.textContent = tr0.rendering || T.en.rendering;
+      referenceMatchedBuffer = await buildReferenceMatchedBuffer();
+      btn.disabled = false; btn.textContent = origLabel;
+    }
+    playBufferDry(referenceMatchedBuffer);
+  });
+
   // per-platform loudness targets. Each is checked independently against the
   // measured Integrated LUFS — this replaces the old single "target LUFS"
   // buttons, which never actually did anything to the output.
@@ -7226,6 +7396,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       bundleModalSubFileProtocol: 'Enter a name, then click Save — since this page is open as a local file, the audio, Settings, and Log files will be packed into one .zip and saved with a single native Save dialog.',
       bundleModalFolderLabel: 'Folder', bundleModalChooseFolder: '📁 Choose folder…', bundleModalNoFolder: 'No folder selected yet', bundleModalNameLabel: 'File name',
       bundleModalCancel: 'Cancel', bundleModalSave: '💾 Save',
+      panelReference: 'Reference Track A/B',
+      refNote: 'Drop a reference track (a commercial release, a favorite mix — anything you\'re aiming for) and A/B it against your Master at matched loudness, so you\'re comparing tone and character instead of just "which one is louder." The reference itself is never modified or uploaded anywhere — only played back locally, gain-adjusted for the comparison.',
+      btnRefPick: '🎯 Load Reference Track…', btnRefPlayMaster: '▶ Play Master', btnRefPlayRef: '▶ Play Reference',
+      refLoading: 'Loading reference…',
+      refLoaded: (lufs) => `Reference loaded — measured ${lufs} LUFS. Playback will be gain-matched to the Master for a fair comparison.`,
+      refDecodeError: '⚠ Could not read that file as audio — try a different WAV/MP3/M4A file.',
       panelOutputSummary: 'Mastered Output Summary',
       panelLoudnessTarget: 'Loudness Target',
       panelDownload: 'Download',
@@ -7265,7 +7441,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       projectLoading: 'Loading project…', projectLoaded: 'Project loaded.',
       projectLoadError: (msg) => `Could not load that project: ${msg}`,
       panelEnvelopeViewer: 'Envelope / Sustain Viewer',
-      envViewerNote: 'Zooms into a short window and overlays a chosen frequency band\'s envelope (attack + decay shape) for Original vs Master — the same "did the sustain get chopped shorter" check used to diagnose over-compression by ear. Needs a Master (Run Mastering) to compare against.',
+      envViewerNote: 'Zooms into a short window and overlays a chosen frequency band\'s envelope (attack + decay shape) for Original vs Master — the same "did the sustain get chopped shorter" check used to diagnose over-compression by ear. Needs a Master (Run Mastering) to compare against. Tip: instead of typing Start/Duration below, you can drag directly across either waveform above to pick the window.',
       envBandLabel: 'Band', envBandLow: 'Low (20–250 Hz)', envBandMid: 'Mid (250–4000 Hz)', envBandHigh: 'High (4000 Hz+)', envBandFull: 'Full Mix',
       envStartLabel: 'Start (s)', envDurLabel: 'Duration (s)', btnRenderEnvelope: '📈 Render Envelope',
       legendOriginal: 'Original', legendMaster: 'Master', legendFlagged: 'Master diverges from Original here',
@@ -7478,6 +7654,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       bundleModalSubFileProtocol: '이름을 입력하고 저장을 누르세요 — 이 페이지를 로컬 파일로 열어서, 음원·Settings·Log 파일을 zip 하나로 묶어서 저장창 딱 1번으로 저장돼요.',
       bundleModalFolderLabel: '폴더', bundleModalChooseFolder: '📁 폴더 선택…', bundleModalNoFolder: '아직 폴더를 선택하지 않았어요', bundleModalNameLabel: '파일 이름',
       bundleModalCancel: '취소', bundleModalSave: '💾 저장',
+      panelReference: 'Reference Track A/B',
+      refNote: '레퍼런스 곡(상용 발매곡, 좋아하는 믹스 등 목표로 삼은 곡)을 드롭하면, 음량을 맞춘 상태로 내 Master와 A/B 비교할 수 있어요 — "어느 쪽이 더 크게 들리나"가 아니라 톤/캐릭터 자체를 비교하는 거예요. 레퍼런스 파일 자체는 수정되거나 어디로도 업로드되지 않고, 비교용으로 게인만 조절해서 로컬에서 재생될 뿐이에요.',
+      btnRefPick: '🎯 레퍼런스 곡 불러오기…', btnRefPlayMaster: '▶ Master 재생', btnRefPlayRef: '▶ 레퍼런스 재생',
+      refLoading: '레퍼런스 불러오는 중…',
+      refLoaded: (lufs) => `레퍼런스를 불러왔어요 — 측정된 라우드니스 ${lufs} LUFS. 공정한 비교를 위해 재생 시 Master와 음량을 맞춰드려요.`,
+      refDecodeError: '⚠ 오디오 파일로 읽지 못했어요 — 다른 WAV/MP3/M4A 파일로 시도해보세요.',
       panelOutputSummary: '마스터링 결과 요약',
       panelLoudnessTarget: 'Loudness Target',
       panelDownload: '다운로드',
@@ -7517,7 +7699,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       projectLoading: '프로젝트 불러오는 중…', projectLoaded: '프로젝트를 불러왔어요.',
       projectLoadError: (msg) => `프로젝트를 불러오지 못했어요: ${msg}`,
       panelEnvelopeViewer: '엔벨로프 / 서스테인 뷰어',
-      envViewerNote: '짧은 구간을 확대해서, 고른 주파수 대역의 엔벨로프(어택+디케이 모양)를 원본과 마스터로 겹쳐 보여줍니다 — 과압축으로 서스테인이 짧아졌는지 귀 대신 눈으로 확인하는 도구예요. 비교하려면 먼저 Run Mastering으로 마스터를 만들어야 합니다.',
+      envViewerNote: '짧은 구간을 확대해서, 고른 주파수 대역의 엔벨로프(어택+디케이 모양)를 원본과 마스터로 겹쳐 보여줍니다 — 과압축으로 서스테인이 짧아졌는지 귀 대신 눈으로 확인하는 도구예요. 비교하려면 먼저 Run Mastering으로 마스터를 만들어야 합니다. 팁: 아래 Start/Duration에 숫자를 직접 입력하는 대신, 위 파형 위에서 원하는 구간을 드래그해서 바로 고를 수도 있어요.',
       envBandLabel: '대역', envBandLow: '저역 (20–250 Hz)', envBandMid: '중역 (250–4000 Hz)', envBandHigh: '고역 (4000 Hz+)', envBandFull: '전체 믹스',
       envStartLabel: '시작 (초)', envDurLabel: '길이 (초)', btnRenderEnvelope: '📈 엔벨로프 그리기',
       legendOriginal: '원본', legendMaster: '마스터', legendFlagged: '마스터가 원본과 크게 달라지는 구간',
@@ -7730,6 +7912,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       bundleModalSubFileProtocol: 'Escribe un nombre y pulsa Guardar — como esta página está abierta como archivo local, el audio, los Ajustes y el Registro se empaquetarán en un .zip y se guardarán con un único diálogo nativo.',
       bundleModalFolderLabel: 'Carpeta', bundleModalChooseFolder: '📁 Elegir carpeta…', bundleModalNoFolder: 'Todavía no se ha elegido una carpeta', bundleModalNameLabel: 'Nombre del archivo',
       bundleModalCancel: 'Cancelar', bundleModalSave: '💾 Guardar',
+      panelReference: 'Reference Track A/B',
+      refNote: 'Suelta una pista de referencia (un lanzamiento comercial, una mezcla favorita — lo que sea a lo que apuntas) y compárala en A/B con tu Master a volumen igualado, para juzgar el tono y el carácter en vez de simplemente "cuál suena más fuerte." La referencia en sí nunca se modifica ni se sube a ningún lado — solo se reproduce localmente, con la ganancia ajustada para la comparación.',
+      btnRefPick: '🎯 Cargar Pista de Referencia…', btnRefPlayMaster: '▶ Reproducir Master', btnRefPlayRef: '▶ Reproducir Referencia',
+      refLoading: 'Cargando referencia…',
+      refLoaded: (lufs) => `Referencia cargada — se midieron ${lufs} LUFS. La reproducción se igualará en volumen al Master para una comparación justa.`,
+      refDecodeError: '⚠ No se pudo leer ese archivo como audio — prueba con otro archivo WAV/MP3/M4A.',
       panelOutputSummary: 'Resumen del Master',
       panelLoudnessTarget: 'Loudness Target',
       panelDownload: 'Descargar',
@@ -7769,7 +7957,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       projectLoading: 'Cargando proyecto…', projectLoaded: 'Proyecto cargado.',
       projectLoadError: (msg) => `No se pudo cargar ese proyecto: ${msg}`,
       panelEnvelopeViewer: 'Visor de Envolvente / Sustain',
-      envViewerNote: 'Amplía una ventana corta y superpone la envolvente (forma de ataque + decaimiento) de una banda de frecuencia elegida para Original vs Máster — la misma comprobación de "¿se acortó el sustain?" usada para diagnosticar la sobrecompresión a simple vista. Necesita un Máster (Run Mastering) para comparar.',
+      envViewerNote: 'Amplía una ventana corta y superpone la envolvente (forma de ataque + decaimiento) de una banda de frecuencia elegida para Original vs Máster — la misma comprobación de "¿se acortó el sustain?" usada para diagnosticar la sobrecompresión a simple vista. Necesita un Máster (Run Mastering) para comparar. Consejo: en vez de escribir Start/Duration abajo, puedes arrastrar directamente sobre cualquiera de las formas de onda de arriba para elegir la ventana.',
       envBandLabel: 'Banda', envBandLow: 'Graves (20–250 Hz)', envBandMid: 'Medios (250–4000 Hz)', envBandHigh: 'Agudos (4000 Hz+)', envBandFull: 'Mezcla Completa',
       envStartLabel: 'Inicio (s)', envDurLabel: 'Duración (s)', btnRenderEnvelope: '📈 Dibujar Envolvente',
       legendOriginal: 'Original', legendMaster: 'Máster', legendFlagged: 'El máster diverge del original aquí',
@@ -7982,6 +8170,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       bundleModalSubFileProtocol: '名前を入力して保存を押してください — このページはローカルファイルとして開かれているため、音声・Settings・Logファイルを1つの.zipにまとめて、ネイティブの保存ダイアログ1回で保存します。',
       bundleModalFolderLabel: 'フォルダ', bundleModalChooseFolder: '📁 フォルダを選択…', bundleModalNoFolder: 'まだフォルダが選択されていません', bundleModalNameLabel: 'ファイル名',
       bundleModalCancel: 'キャンセル', bundleModalSave: '💾 保存',
+      panelReference: 'Reference Track A/B',
+      refNote: 'リファレンス曲(市販曲やお気に入りのミックスなど、目指している曲)をドロップすると、音量を揃えた状態で自分のMasterとA/B比較できます — 「どちらが大きく聴こえるか」ではなく、トーンやキャラクター自体を比較できます。リファレンスファイル自体は変更されたりどこかにアップロードされたりせず、比較用にゲイン調整してローカルで再生されるだけです。',
+      btnRefPick: '🎯 リファレンス曲を読み込み…', btnRefPlayMaster: '▶ Masterを再生', btnRefPlayRef: '▶ リファレンスを再生',
+      refLoading: 'リファレンスを読み込み中…',
+      refLoaded: (lufs) => `リファレンスを読み込みました — 測定値 ${lufs} LUFS。公平に比較できるよう、再生時にMasterと音量を揃えます。`,
+      refDecodeError: '⚠ オーディオファイルとして読み込めませんでした — 別のWAV/MP3/M4Aファイルでお試しください。',
       panelOutputSummary: 'マスター結果サマリー',
       panelLoudnessTarget: 'Loudness Target',
       panelDownload: 'ダウンロード',
@@ -8021,7 +8215,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       projectLoading: 'プロジェクトを読み込み中…', projectLoaded: 'プロジェクトを読み込みました。',
       projectLoadError: (msg) => `このプロジェクトを読み込めませんでした: ${msg}`,
       panelEnvelopeViewer: 'エンベロープ / サステインビューア',
-      envViewerNote: '短い区間を拡大して、選んだ周波数帯域のエンベロープ(アタック+ディケイの形)をOriginalとMasterで重ねて表示します — 過圧縮でサステインが短くなっていないか、耳ではなく目で確認するツールです。比較するにはまずRun MasteringでMasterを作成してください。',
+      envViewerNote: '短い区間を拡大して、選んだ周波数帯域のエンベロープ(アタック+ディケイの形)をOriginalとMasterで重ねて表示します — 過圧縮でサステインが短くなっていないか、耳ではなく目で確認するツールです。比較するにはまずRun MasteringでMasterを作成してください。ヒント: 下のStart/Durationに数値を入力する代わりに、上の波形を直接ドラッグして区間を選ぶこともできます。',
       envBandLabel: '帯域', envBandLow: '低域 (20–250 Hz)', envBandMid: '中域 (250–4000 Hz)', envBandHigh: '高域 (4000 Hz+)', envBandFull: 'フルミックス',
       envStartLabel: '開始 (秒)', envDurLabel: '長さ (秒)', btnRenderEnvelope: '📈 エンベロープを描画',
       legendOriginal: 'オリジナル', legendMaster: 'マスター', legendFlagged: 'マスターがオリジナルと大きく異なる箇所',
@@ -8234,6 +8428,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       bundleModalSubFileProtocol: '输入名字后点击保存 — 由于此页面是以本地文件方式打开的，音频、设置和日志文件会打包成一个.zip，只需一次原生保存对话框即可保存。',
       bundleModalFolderLabel: '文件夹', bundleModalChooseFolder: '📁 选择文件夹…', bundleModalNoFolder: '还没有选择文件夹', bundleModalNameLabel: '文件名',
       bundleModalCancel: '取消', bundleModalSave: '💾 保存',
+      panelReference: 'Reference Track A/B',
+      refNote: '拖入一首参考曲目(商业发行版、喜欢的混音——任何你想接近的目标)，就能在音量匹配的情况下与你的Master进行A/B对比，这样比较的是音色和质感，而不只是"哪个更响"。参考曲目本身不会被修改，也不会上传到任何地方——只会为了对比在本地做增益调整后播放。',
+      btnRefPick: '🎯 加载参考曲目…', btnRefPlayMaster: '▶ 播放Master', btnRefPlayRef: '▶ 播放参考曲目',
+      refLoading: '正在加载参考曲目…',
+      refLoaded: (lufs) => `参考曲目已加载 — 测得响度为 ${lufs} LUFS。播放时会与Master的音量匹配，以便公平比较。`,
+      refDecodeError: '⚠ 无法将该文件识别为音频 — 请换一个WAV/MP3/M4A文件试试。',
       panelOutputSummary: '母带处理结果摘要',
       panelLoudnessTarget: 'Loudness Target',
       panelDownload: '下载',
@@ -8273,7 +8473,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       projectLoading: '正在加载项目…', projectLoaded: '项目已加载。',
       projectLoadError: (msg) => `无法加载该项目: ${msg}`,
       panelEnvelopeViewer: '包络 / 延音查看器',
-      envViewerNote: '放大一小段区间，将所选频段的包络(起音+衰减形状)在Original与Master之间叠加显示 — 这正是用来诊断过度压缩、"延音是否被削短"的可视化检查方式，无需只靠耳朵判断。需要先Run Mastering生成Master才能比较。',
+      envViewerNote: '放大一小段区间，将所选频段的包络(起音+衰减形状)在Original与Master之间叠加显示 — 这正是用来诊断过度压缩、"延音是否被削短"的可视化检查方式，无需只靠耳朵判断。需要先Run Mastering生成Master才能比较。提示：除了在下方输入Start/Duration数值，也可以直接在上方波形上拖动来选取区间。',
       envBandLabel: '频段', envBandLow: '低频 (20–250 Hz)', envBandMid: '中频 (250–4000 Hz)', envBandHigh: '高频 (4000 Hz+)', envBandFull: '完整混音',
       envStartLabel: '起始 (秒)', envDurLabel: '时长 (秒)', btnRenderEnvelope: '📈 绘制包络',
       legendOriginal: '原始', legendMaster: '母带', legendFlagged: '母带在此处与原始明显不同',
