@@ -628,6 +628,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     color: var(--text-dim); font-size:12.5px; cursor:pointer; text-align:center;
   }
   .fmt-tab.active{ border-color: var(--accent); color: var(--accent); }
+  .mode-tabs{ display:inline-flex; gap:6px; }
+  .mode-tab{
+    padding:6px 12px; border-radius:7px; border:1px solid var(--line); background:#0a0c10;
+    color: var(--text-dim); font-size:12px; cursor:pointer; text-align:center;
+  }
+  .mode-tab.active{ border-color: var(--accent); color: var(--accent); }
   .target-tab{
     flex:1; padding:9px; border-radius:7px; border:1px solid var(--line); background:#0a0c10;
     color: var(--text-dim); font-size:12.5px; cursor:pointer; text-align:center;
@@ -1231,6 +1237,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
 
     <div class="panel">
       <div class="panel-title" data-i18n="panelEditHistory">Edit History</div>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+        <span style="font-size:12px; color:var(--text-dim);" data-i18n="editorModeLabel">Who's making the next edits?</span>
+        <div class="mode-tabs" id="editorModeTabs">
+          <div class="mode-tab active" id="editorModeManualTab" data-mode="manual" data-i18n="editorModeManual">🧑 Manual</div>
+          <div class="mode-tab" id="editorModeAiTab" data-mode="ai" data-i18n="editorModeAi">🤖 AI-assisted</div>
+        </div>
+      </div>
+      <div class="note" style="margin-top:-4px; margin-bottom:12px;" data-i18n="editorModeNote">Tags every new Edit Log entry with who made it — for provenance, not to hide anything: switch to AI-assisted before letting a tool like Claude drive the sliders, then back to Manual when you take over yourself. The toggle change itself is logged too, so the log shows exactly where each handoff happened.</div>
       <div class="history-controls">
         <button class="dl-btn" id="undoBtn" style="width:auto; padding:9px 18px; background:var(--panel-2); color:var(--accent); border:1px solid var(--line);" disabled data-i18n="undoBtn">↩ Undo one step</button>
         <button class="reset-btn" id="historyToggleBtn" style="display:none;">Show full history ▾</button>
@@ -1839,6 +1853,13 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   const fileNameLabel = document.getElementById('fileNameLabel');
 
   let audioCtx, audioBuffer, sourceNode, isPlaying = false, startedAt = 0, pausedAt = 0;
+  // Several "Play X" buttons (Original Play, Play Full Mix, Play Mastered
+  // Mix, Reference A/B's Play Master/Play Reference) all share the exact
+  // same mode-'A' dry-passthrough transport slot — isPlaying/mode alone
+  // can't tell them apart. This tags which one most recently started it, so
+  // a button can tell "is MY playback the thing that would stop if clicked
+  // again" instead of just "is something playing." Cleared on stopPlayback().
+  let activeModeASource = null;
 
   // ---- Stem Mastering: lets the user upload several stems (vocal/bass/
   // drums/etc, e.g. Suno's stem export) instead of one mixed-down file, and
@@ -1872,7 +1893,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   // on them right now IS the one shared bus setting, regardless of which
   // stem tab happens to be active. That's why switching stem tabs (below)
   // deliberately skips these keys instead of swapping them too.
-  const STEM_BUS_KEYS = ['bassFreq','bassThresh','bassRatio','bassAttack','bassRelease','thresh','ratio','attack','release','makeup','ceil'];
+  const STEM_BUS_KEYS = ['bassFreq','bassThresh','bassRatio','bassAttack','bassRelease','thresh','ratio','attack','release','makeup','ceil','intensity'];
   let stemSlots = {};          // { vocal:{label, files:[{name}], buffer, settings}, bass:{...}, ... }
   let activeStemSlotId = null;
   let stemsDrySumBuffer = null; // all stems summed, unprocessed — "Play Full Mix" reference
@@ -2620,6 +2641,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       waveEmptyB.textContent = 'Settings changed — run mastering again';
       waveCtxB.clearRect(0,0,waveCanvasB.width, waveCanvasB.height);
     }
+    stemsMasteredMixCache = null; // Play Mastered Mix's own cache — same staleness rule as masteredBuffer above
     if(lastMeasuredLufs != null) updateDownloadSuggestions(lastMeasuredLufs);
     if(typeof invalidateReferenceMatch === 'function') invalidateReferenceMatch(); // a stale Master loudness would silently mismatch the Reference A/B gain
   }
@@ -2634,11 +2656,11 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       if(tagId) document.getElementById(tagId).textContent = tagFmt(v);
       applyAllParams();
     }
-    s.addEventListener('input', ()=>{ sync(parseFloat(s.value)); invalidateMaster(); scheduleHistoryPush('Manual edit'); });
+    s.addEventListener('input', ()=>{ sync(parseFloat(s.value)); invalidateMaster(); scheduleHistoryPush('Manual edit', false, key); });
     n.addEventListener('change', ()=>{
       let v = parseFloat(n.value);
       if(isNaN(v)) v = parseFloat(s.value);
-      sync(v); invalidateMaster(); scheduleHistoryPush('Manual edit');
+      sync(v); invalidateMaster(); scheduleHistoryPush('Manual edit', false, key);
     });
     sync(parseFloat(s.value));
   }
@@ -2669,13 +2691,13 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   bindPair('bassAttack', 0);
   bindPair('bassRelease', 0);
   document.getElementById('bassEnable').addEventListener('change', ()=>{
-    applyAllParams(); invalidateMaster(); scheduleHistoryPush('Manual edit');
+    applyAllParams(); invalidateMaster(); scheduleHistoryPush('Manual edit', false, 'bassEnable');
   });
   document.getElementById('satEnable').addEventListener('change', ()=>{
-    applyAllParams(); invalidateMaster(); scheduleHistoryPush('Manual edit');
+    applyAllParams(); invalidateMaster(); scheduleHistoryPush('Manual edit', false, 'satEnable');
   });
   document.getElementById('deEnable').addEventListener('change', ()=>{
-    applyAllParams(); invalidateMaster(); scheduleHistoryPush('Manual edit');
+    applyAllParams(); invalidateMaster(); scheduleHistoryPush('Manual edit', false, 'deEnable');
   });
   bindPair('makeup', 1);
   bindPair('ceil', 1);
@@ -2696,7 +2718,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     'busSatAmount','busSatMix','duckAmount','duckRelease'];
   let history = [];
   let historyIndex = -1;
-  let historyDebounceId = null;
+  let historyDebounceId = null; // legacy name kept as the queue's active setTimeout id — see scheduleHistoryPush()/clearHistoryQueue() below
+  let historyQueue = [];
   let restoringSnapshot = false;
 
   // ---- append-only edit log: separate from the Undo history above, which
@@ -2708,8 +2731,24 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   // becomes more common to need to document AI-assisted work for copyright
   // purposes). ----
   let editLog = [];
+  // 9차 세션 QA: the log's whole purpose is proving how much of the result
+  // is human-directed, but every entry — whether a person dragged the
+  // slider or an AI tool (like Claude, driving the page through browser
+  // automation) did — used to get recorded identically as "Manual edit",
+  // making the log unable to actually answer that question. This is NOT
+  // about hiding AI involvement — the user was explicit that the goal is
+  // showing how much AI helped AND how much a human then decided/changed on
+  // top of that. 'manual' is the default (nothing changes for anyone who
+  // never touches the toggle); switching to 'ai' tags every entry recorded
+  // from then on until switched back. See editorModeTabs below.
+  let editorMode = 'manual';
   function logEvent(action, label, snap){
-    editLog.push({ time: new Date(), action, label, snap: snap || null });
+    // 'Mode' entries (the toggle switch itself) already spell out which mode
+    // they're switching to in the label — tagging them too would read as a
+    // redundant "switched to: AI-assisted (AI-assisted)".
+    const taggedLabel = (editorMode === 'ai' && action !== 'Mode') ? `${label} (AI-assisted)` : label;
+    editLog.push({ time: new Date(), action, label: taggedLabel, snap: snap || null });
+    return taggedLabel;
   }
 
   function snapshotParams(){
@@ -2723,10 +2762,10 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   // log write). scheduleHistoryPush() must NOT derive them live, since its
   // whole point is to defer the actual write by 700ms — see comment there.
   function pushHistorySnap(label, snap){
+    const taggedLabel = logEvent('Edit', label, snap); // tags with the active editor mode once; reuse the same tagged string for the on-screen Undo panel below so it matches the exported Log
     history = history.slice(0, historyIndex+1);
-    history.push({ label, time: new Date(), snap });
+    history.push({ label: taggedLabel, time: new Date(), snap });
     historyIndex = history.length - 1;
-    logEvent('Edit', label, snap);
     renderHistoryLog();
   }
   function pushHistory(label){
@@ -2735,19 +2774,56 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     if(stemModeEnabled && activeStemSlotId && stemSlots[activeStemSlotId]) label = `[${stemSlots[activeStemSlotId].label}] ` + label;
     pushHistorySnap(label, snapshotParams());
   }
-  function scheduleHistoryPush(label, busLevel){
+  // Friendly names for the handful of controls that aren't keyed off
+  // SETTINGS_SLIDER_KEYS (checkboxes and the Master Bus glue inputs, which
+  // are wired up outside bindPair() — see their listeners below/near
+  // busSatEnable). SETTINGS_LABELS itself covers every plain slider key.
+  const FIELD_LABEL_FALLBACK = {
+    bassEnable: 'Bass Protect Enable', satEnable: 'Saturation Enable', deEnable: 'De-Harsher Enable',
+    busSatEnable: 'Bus Saturation Enable', busSatAmountSlider: 'Bus Saturation Drive', busSatMixSlider: 'Bus Saturation Mix',
+    duckEnable: 'Sidechain Duck Enable', duckTriggerSelect: 'Sidechain Duck Trigger',
+    duckAmountSlider: 'Sidechain Duck Amount', duckReleaseSlider: 'Sidechain Duck Release',
+  };
+  function fieldLabelFor(fieldKey){
+    if(!fieldKey) return null;
+    return SETTINGS_LABELS[fieldKey] || FIELD_LABEL_FALLBACK[fieldKey] || null;
+  }
+  // Cancels whatever's still waiting in the queue below — used right before
+  // a single deliberate action (Preset pick, Vibe blend, Undo jump, Split
+  // marker drag, …) pushes its OWN one-line history entry, so a stray
+  // "Manual edit" from just before that action can't flush later and land
+  // out of order underneath it.
+  function clearHistoryQueue(){
+    clearTimeout(historyDebounceId);
+    historyDebounceId = null;
+    historyQueue = [];
+  }
+  // 9차 세션 QA: rapid edits to different fields (a person clicking through
+  // several sliders quickly, or Claude driving multiple controls in one
+  // batch) used to all land inside the same 700ms window, and the old
+  // debounce (clearTimeout + reschedule on every call) only ever kept the
+  // LAST one — the other fields' edits vanished from the log entirely even
+  // though the values themselves were fine. Now every call queues its own
+  // entry instead of cancelling the previous one, and a small self-chaining
+  // flush loop below pushes them one at a time, in the order they actually
+  // happened, at least 1s apart — so "Low Shelf Gain", "High Shelf Gain",
+  // and "Compressor Ratio" show up as three distinct, individually
+  // identifiable log lines instead of one anonymous "Manual edit".
+  function scheduleHistoryPush(label, busLevel, fieldKey){
     if(restoringSnapshot || !audioBuffer) return;
-    // Capture the tab label and the slider values RIGHT NOW, not 700ms from
-    // now — if the user switches Section/Stem tabs before the debounce
-    // fires (very easy: drag a slider, then immediately click another tab),
-    // a version of this that re-derives "which tab" and "what values" at
-    // fire time logs the edit under the WRONG tab using the WRONG tab's
+    // Capture the tab label and the slider values RIGHT NOW, not N ms from
+    // now — if the user switches Section/Stem tabs before this flushes
+    // (very easy: drag a slider, then immediately click another tab), a
+    // version of this that re-derives "which tab" and "what values" at
+    // flush time logs the edit under the WRONG tab using the WRONG tab's
     // values. Worse, if that mislabeled entry is later jumped to via Edit
     // History, applySnapshot() writes those wrong values onto whatever tab
     // happens to be active at THAT point — the real mechanism behind stem
     // settings bleeding from one tab's block into another's after a rapid
     // tab-switch sequence.
     let label2 = label;
+    const friendly = fieldLabelFor(fieldKey);
+    if(friendly) label2 = `${label2}: ${friendly}`;
     if(splitEnabled && activeSection === 2) label2 = '[Section 2] ' + label2;
     // busLevel=true means this came from a Master Bus glue control
     // (Bus Saturation/Sidechain Duck), which isn't tied to whichever stem
@@ -2759,9 +2835,20 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     } else if(stemModeEnabled && activeStemSlotId && stemSlots[activeStemSlotId]){
       label2 = `[${stemSlots[activeStemSlotId].label}] ` + label2;
     }
-    const snap = snapshotParams();
-    clearTimeout(historyDebounceId);
-    historyDebounceId = setTimeout(()=> pushHistorySnap(label2, snap), 700);
+    historyQueue.push({ label: label2, snap: snapshotParams() });
+    if(historyDebounceId) return; // a flush chain is already running — it'll pick up this new entry when it gets there
+    const flushNext = ()=>{
+      const item = historyQueue.shift();
+      if(item) pushHistorySnap(item.label, item.snap);
+      if(historyQueue.length){
+        // more arrived while we were waiting (or while this flush itself
+        // was executing) — keep chaining, at least 1s between entries.
+        historyDebounceId = setTimeout(flushNext, 1000);
+      } else {
+        historyDebounceId = null;
+      }
+    };
+    historyDebounceId = setTimeout(flushNext, 700);
   }
   function applySnapshot(snap){
     restoringSnapshot = true;
@@ -2820,6 +2907,23 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   document.getElementById('historyToggleBtn').addEventListener('click', ()=>{
     historyExpanded = !historyExpanded;
     renderHistoryLog();
+  });
+
+  // Manual/AI-assisted mode toggle — see editorMode/logEvent() above. The
+  // switch itself is logged (with the mode it's switching TO, tagged the
+  // normal way by logEvent()) so the exported Log shows exactly where each
+  // handoff between a person and an AI tool happened, not just the edits
+  // made under each mode.
+  document.querySelectorAll('#editorModeTabs .mode-tab').forEach(tab=>{
+    tab.addEventListener('click', ()=>{
+      const mode = tab.dataset.mode;
+      if(mode === editorMode) return;
+      editorMode = mode;
+      document.querySelectorAll('#editorModeTabs .mode-tab').forEach(t=>t.classList.toggle('active', t===tab));
+      const tr0 = T[currentLang] || T.en;
+      const modeLabel = mode === 'ai' ? (tr0.editorModeAi || T.en.editorModeAi) : (tr0.editorModeManual || T.en.editorModeManual);
+      logEvent('Mode', `${(tr0.editorModeLogPrefix || T.en.editorModeLogPrefix)} ${modeLabel}`);
+    });
   });
 
   // ---- presets ----
@@ -3001,7 +3105,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     });
     restoringSnapshot = false;
     invalidateMaster();
-    clearTimeout(historyDebounceId);
+    clearHistoryQueue();
     pushHistory('Preset: ' + e.target.selectedOptions[0].textContent);
     descEl.textContent = currentPresetDescText();
 
@@ -3092,7 +3196,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     restoringSnapshot = false;
     applyAllParams();
     invalidateMaster();
-    clearTimeout(historyDebounceId);
+    clearHistoryQueue();
     pushHistory('Loaded preset');
 
     // Section Split data, if the file had any — older files (or a file
@@ -3794,7 +3898,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     restoringSnapshot = false;
 
     invalidateMaster();
-    clearTimeout(historyDebounceId);
+    clearHistoryQueue();
     pushHistory(activeTags.length ? 'Vibe: ' + activeTags.join(' + ') : 'Vibe cleared');
 
     // once every tag is deselected, drop the snapshot so the very next
@@ -4272,6 +4376,22 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     resetSplitState();
     document.getElementById('splitPanel').classList.add('hidden'); // mutually exclusive with Section Split in this version
 
+    // Give every slot its OWN independent copy of whatever Preset/Genre/Vibe
+    // blend is currently on the sliders, captured ONCE right now — this is
+    // the shared starting point every stem is supposed to begin from (a
+    // Genre/Preset pick made before upload applies to all stems). Without
+    // this, switchToStemSlot()'s old "if this slot has never been visited,
+    // capture whatever's currently on the DOM" fallback would run AFTER
+    // the first tab's own edits were already sitting on the sliders, so the
+    // *next* never-visited tab's "baseline" ended up being the previous
+    // tab's edited values instead of the real shared baseline — a bug
+    // reported in the 9차 세션 QA report (Vocal EQ edits bleeding into Bass
+    // and Drums & Percussion on first visit). JSON round-trip so no slot
+    // shares an array/object reference with another (vibeTags/genreTags/
+    // vibeBase) that a later per-slot edit could accidentally mutate.
+    const stemBaseline = captureStemState();
+    STEM_SLOT_DEFS.forEach(def=>{ stemSlots[def.id].settings = JSON.parse(JSON.stringify(stemBaseline)); });
+
     renderStemSlotList();
     switchToStemSlot(firstSlotId);
     pushHistory('Initial stems upload');
@@ -4431,6 +4551,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const restoreBuffer = activeStemSlotId ? stemSlots[activeStemSlotId].buffer : audioBuffer;
     audioBuffer = stemsDrySumBuffer;
     setMode('A');
+    activeModeASource = 'full-mix';
     startPlayback(0); // synchronous — captures stemsDrySumBuffer into sourceNode.buffer immediately
     audioBuffer = restoreBuffer; // restore right away so everything else (Run Mastering, tab switches) still refers to the active stem
   });
@@ -4444,18 +4565,43 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   // live EQ/Comp/Limiter graph gets applied a second time on top).
   // Deliberately does NOT touch masteredBuffer/waveform B/Edit Log — those
   // belong to the actual Run Mastering button; this is just a listen.
+  //
+  // 9차 세션 QA: two real usability problems with this button as originally
+  // shipped — (1) it always re-rendered from scratch even if nothing had
+  // changed since the last render (15-20s wait every single time with a
+  // heavier stem count + Sidechain Duck), and (2) clicking it again while
+  // already playing just started ANOTHER render+playback on top instead of
+  // stopping — there was no way to interrupt it short of leaving the page.
+  // Fixed both: (1) reuses the already-rendered masteredBuffer when one
+  // exists (Run Mastering already produced it, or a previous click here
+  // did) — invalidateMaster() nulls it out the moment any setting actually
+  // changes, so this can never play stale audio; (2) a click while THIS
+  // button's own mode-A playback is active now stops it instead of
+  // re-rendering — activeModeASource (see updateTransportIcons()) is how
+  // the button knows the currently-audible mode-A source is its own, not
+  // Original Play/Play Full Mix/Reference A-B sharing the same transport.
+  let stemsMasteredMixCache = null;
   document.getElementById('stemsPlayMasteredMixBtn').addEventListener('click', async ()=>{
     if(!audioBuffer) return;
+    if(isPlaying && mode === 'A' && activeModeASource === 'mastered-mix'){
+      stopPlayback();
+      return;
+    }
     if(isPlaying) stopPlayback(true);
     const btn = document.getElementById('stemsPlayMasteredMixBtn');
     const tr0 = T[currentLang] || T.en;
     const originalLabel = btn.textContent;
-    btn.disabled = true; btn.textContent = tr0.rendering || T.en.rendering;
-    const rendered = await renderMaster();
-    btn.disabled = false; btn.textContent = originalLabel;
+    let rendered = masteredBuffer || stemsMasteredMixCache;
+    if(!rendered){
+      btn.disabled = true; btn.textContent = tr0.rendering || T.en.rendering;
+      rendered = await renderMaster();
+      stemsMasteredMixCache = rendered;
+      btn.disabled = false; btn.textContent = originalLabel;
+    }
     const restoreBuffer = activeStemSlotId ? stemSlots[activeStemSlotId].buffer : audioBuffer;
     audioBuffer = rendered;
     setMode('A');
+    activeModeASource = 'mastered-mix';
     startPlayback(0);
     audioBuffer = restoreBuffer;
   });
@@ -4469,7 +4615,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const evt = el.type==='checkbox' ? 'change' : (el.tagName==='SELECT' ? 'change' : 'input');
     el.addEventListener(evt, ()=>{
       invalidateMaster();
-      scheduleHistoryPush('Manual edit', true);
+      scheduleHistoryPush('Manual edit', true, id);
     });
   });
   // Number-input companions for the bus glue sliders above — these had no
@@ -4757,7 +4903,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     syncActiveSectionState();
     section2State = {...section1State};
     if(activeSection === 2) applySectionState(section2State);
-    clearTimeout(historyDebounceId);
+    clearHistoryQueue();
     logEvent('Edit', 'Split: copied Section 1 → Section 2');
     updateSplitStatusText();
   });
@@ -4775,7 +4921,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       const onUp = ()=>{
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
-        clearTimeout(historyDebounceId);
+        clearHistoryQueue();
         logEvent('Edit', `Split: moved to ${fmtTime(splitTimeSec)}`);
       };
       document.addEventListener('mousemove', onMove);
@@ -4797,6 +4943,12 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     playBtn.classList.toggle('playing', playingA);
     playMasterBtn.textContent = playingB ? t.playMasterStop : t.playMaster;
     playMasterBtn.classList.toggle('playing', playingB);
+    const mmBtn = document.getElementById('stemsPlayMasteredMixBtn');
+    if(mmBtn && !mmBtn.disabled){ // not disabled = not mid-render (render itself already owns the label then)
+      const mmPlaying = playingA && activeModeASource === 'mastered-mix';
+      mmBtn.textContent = mmPlaying ? (t.btnPlayMasteredMixStop || T.en.btnPlayMasteredMixStop) : (t.btnPlayMasteredMix || T.en.btnPlayMasteredMix);
+      mmBtn.classList.toggle('playing', mmPlaying);
+    }
   }
 
   playBtn.addEventListener('click', ()=>{
@@ -4805,8 +4957,10 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       stopPlayback();
     } else if(isPlaying){
       setMode('A'); // same timeline is already running — just switch what's audible
+      activeModeASource = 'original';
     } else {
       setMode('A');
+      activeModeASource = 'original';
       startPlayback(pausedAt);
     }
   });
@@ -4906,6 +5060,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
 
   function stopPlayback(natural=false){
     isPlaying = false;
+    activeModeASource = null;
     updateTransportIcons();
     if(sourceNode){
       sourceNode.onended = null; // manual stop still fires 'ended' asynchronously — without
@@ -5556,7 +5711,15 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const deOn = readSourceChecked(source,'deEnable');
     const bassOn = readSourceChecked(source,'bassEnable');
     const width = readSourceVal(source,'width')/100;
-    const intensity = readSourceVal(source,'intensity')/100;
+    // Mastering Intensity lives on the shared Master Bus (Loudness card,
+    // STEM_BUS_KEYS) — always read straight off the live slider rather than
+    // through readSourceVal(), since a per-stem snapshot no longer carries
+    // this key at all (captureStemState() skips STEM_BUS_KEYS) and would
+    // otherwise resolve to undefined/100 = NaN here, poisoning dryMix/wetMix
+    // below and making every stem-mode render throw a non-finite AudioParam
+    // error the moment Run Mastering (or anything that calls renderMaster())
+    // is clicked.
+    const intensity = val('intensity')/100;
     return {
       lowFreq: readSourceVal(source,'lowFreq'), lowGain: readSourceVal(source,'lowGain'),
       subGain: readSourceVal(source,'subGain'), bassGain: readSourceVal(source,'bassGain'), lowmidGain: readSourceVal(source,'lowmidGain'),
@@ -7354,6 +7517,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       panelLiveMonitor: 'Live Monitor',
       panelMixingDesk: 'Mixing Desk',
       panelEditHistory: 'Edit History',
+      editorModeLabel: "Who's making the next edits?", editorModeManual: '🧑 Manual', editorModeAi: '🤖 AI-assisted',
+      editorModeNote: 'Tags every new Edit Log entry with who made it — for provenance, not to hide anything: switch to AI-assisted before letting a tool like Claude drive the sliders, then back to Manual when you take over yourself. The toggle change itself is logged too, so the log shows exactly where each handoff happened.',
+      editorModeLogPrefix: 'Editor mode switched to:',
       btnLogDownload: '📜 Download Log', logNote: 'The Log (unlike Undo) never overwrites anything, it\'s a running record of every edit, preset choice, undo, and jump you make, in order, even ones you later undid. Useful as a provenance record of how much of the final result came from manual, human-directed work.',
       panelSplit: 'Section Split (vibe changes mid-track)',
       descSplit: 'Turn this on to give the part of the track after your chosen timestamp its own fully independent EQ / Compressor / Bass Protect / Saturation / De-Harsher / Width / Vibe settings, smoothly crossfaded in. Leave it off and the tool behaves exactly as before — one setting for the whole track.',
@@ -7373,8 +7539,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       stemSlotVocal: 'Vocal', stemSlotBass: 'Bass', stemSlotDrums: 'Drums & Percussion', stemSlotExtra: 'Extra', stemSlotOthers: 'Others',
       btnPlayFullMix: '🔊 Play Full Mix',
       stemsFullMixHint: 'Plays every stem summed together, unprocessed — a quick reference for what the raw combined song sounds like.',
-      btnPlayMasteredMix: '🎧 Play Mastered Mix',
-      stemsMasteredMixHint: "Renders the full stem chain + Master Bus once, then plays the result immediately — not a live graph, so moving a slider while it's playing won't change what you hear until you click it again.",
+      btnPlayMasteredMix: '🎧 Play Mastered Mix', btnPlayMasteredMixStop: '⏹ Stop',
+      stemsMasteredMixHint: "Renders the full stem chain + Master Bus once, then plays the result immediately — not a live graph, so moving a slider while it's playing won't change what you hear until you click it again. Reuses the last render as long as nothing's changed since (no repeat 15-20s wait), and clicking it again while it's playing stops it instead of starting a new render.",
       panelMasterBus: 'Master Bus (shared)',
       masterBusHint: 'The Bass Protect / Compressor / Loudness cards below always control this one shared bus, applied once after every stem is summed — they don\'t switch per stem tab like EQ/Saturation/De-Harsher/Width do.',
       busSatEnableLabel: 'Bus Saturation (glue)', busSatDriveLabel: 'Drive %', busSatMixLabel: 'Mix %',
@@ -7612,6 +7778,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       panelLiveMonitor: 'Live Monitor',
       panelMixingDesk: 'Mixing Desk',
       panelEditHistory: '수정 히스토리',
+      editorModeLabel: '지금부터 누가 조작하나요?', editorModeManual: '🧑 사람 직접', editorModeAi: '🤖 AI 보조',
+      editorModeNote: '앞으로 기록되는 모든 Edit Log 항목에 "누가 조작했는지"를 표시해요 — 숨기려는 게 아니라 증빙용이에요: Claude 같은 도구가 슬라이더를 대신 조작하기 전에 AI 보조로 바꾸고, 다시 직접 조작할 땐 사람 직접으로 돌려주세요. 모드 전환 자체도 로그에 남아서, 어디서 손이 바뀌었는지 정확히 보여요.',
+      editorModeLogPrefix: '조작 모드 전환:',
       btnLogDownload: '📜 로그 다운로드', logNote: '로그는(Undo와 다르게) 절대 덮어써지지 않아요, 모든 편집, 프리셋 선택, undo, jump가 실제로 일어난 순서 그대로 다 기록돼요, 나중에 되돌린 것까지 전부요. 최종 결과물에 사람이 얼마나 직접 관여했는지 증명하는 기록으로 쓸 수 있어요.',
       panelSplit: '구간 분할 (곡 중간부터 바이브 전환)',
       descSplit: '켜면 지정한 시점 이후 구간에 EQ / 컴프레서 / Bass Protect / Saturation / De-Harsher / Width / Vibe를 완전히 독립적으로 세팅할 수 있어요, 부드럽게 크로스페이드되며 전환됩니다. 꺼두면 지금까지와 완전히 동일하게 — 트랙 전체에 하나의 설정만 적용돼요.',
@@ -7631,8 +7800,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       stemSlotVocal: 'Vocal', stemSlotBass: 'Bass', stemSlotDrums: '드럼 & 퍼커션', stemSlotExtra: 'Extra', stemSlotOthers: 'Others',
       btnPlayFullMix: '🔊 전체 합본 재생',
       stemsFullMixHint: '모든 스템을 무가공으로 합쳐서 재생해요 — 원곡 전체가 어떤 느낌인지 빠르게 참고할 때 써요.',
-      btnPlayMasteredMix: '🎧 마스터링 결과 재생',
-      stemsMasteredMixHint: '전체 스템 체인 + Master Bus를 한 번 렌더링한 뒤 바로 재생해요 — 라이브 그래프가 아니라서, 재생 중에 슬라이더를 만져도 다시 누르기 전까진 소리가 안 바뀌어요.',
+      btnPlayMasteredMix: '🎧 마스터링 결과 재생', btnPlayMasteredMixStop: '⏹ 정지',
+      stemsMasteredMixHint: '전체 스템 체인 + Master Bus를 한 번 렌더링한 뒤 바로 재생해요 — 라이브 그래프가 아니라서, 재생 중에 슬라이더를 만져도 다시 누르기 전까진 소리가 안 바뀌어요. 그 사이 설정이 안 바뀌었으면 마지막 렌더 결과를 그대로 재사용해요(15~20초 다시 안 기다림), 재생 중에 다시 누르면 새로 렌더링하지 않고 그냥 정지해요.',
       panelMasterBus: 'Master Bus (공유)',
       masterBusHint: '아래 Bass Protect / Compressor / Loudness 카드는 항상 이 하나의 공유 버스를 조절해요 — 모든 스템이 합쳐진 뒤 딱 한 번 적용되고, EQ/Saturation/De-Harsher/Width처럼 스템 탭마다 바뀌지 않아요.',
       busSatEnableLabel: '버스 Saturation (글루)', busSatDriveLabel: 'Drive %', busSatMixLabel: 'Mix %',
@@ -7870,6 +8039,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       panelLiveMonitor: 'Live Monitor',
       panelMixingDesk: 'Mixing Desk',
       panelEditHistory: 'Historial de Ediciones',
+      editorModeLabel: 'Quien va a hacer las proximas ediciones?', editorModeManual: '🧑 Manual', editorModeAi: '🤖 Asistido por IA',
+      editorModeNote: 'Etiqueta cada nueva entrada del Registro de Edicion con quien la hizo — para procedencia, no para ocultar nada: cambia a Asistido por IA antes de dejar que una herramienta como Claude mueva los controles, y vuelve a Manual cuando retomes tu mismo. El cambio de modo tambien queda registrado, asi el registro muestra exactamente donde ocurrio cada cambio de manos.',
+      editorModeLogPrefix: 'Modo de edicion cambiado a:',
       btnLogDownload: '📜 Descargar Registro', logNote: 'El Registro (a diferencia de Undo) nunca sobrescribe nada, es un historial continuo de cada edicion, eleccion de preset, deshacer y salto que hagas, en orden, incluso los que despues deshiciste. Util como registro de procedencia de cuanto trabajo manual dirigido por humanos hay en el resultado final.',
       panelSplit: 'Division en Secciones (el vibe cambia a mitad de la pista)',
       descSplit: 'Activa esto para que la parte de la pista despues del punto elegido tenga su propio EQ / Compresor / Bass Protect / Saturacion / De-Harsher / Ancho / Vibe totalmente independientes, con una transicion suave. Dejalo apagado y la herramienta funciona exactamente como antes — un solo ajuste para toda la pista.',
@@ -7889,8 +8061,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       stemSlotVocal: 'Vocal', stemSlotBass: 'Bass', stemSlotDrums: 'Bateria y Percusion', stemSlotExtra: 'Extra', stemSlotOthers: 'Otros',
       btnPlayFullMix: '🔊 Reproducir Mezcla Completa',
       stemsFullMixHint: 'Reproduce todos los stems sumados sin procesar — una referencia rapida de como suena la cancion combinada en crudo.',
-      btnPlayMasteredMix: '🎧 Reproducir Mezcla Masterizada',
-      stemsMasteredMixHint: 'Renderiza toda la cadena de stems + Master Bus una vez, y reproduce el resultado de inmediato — no es un grafo en vivo, asi que mover un slider mientras suena no cambia nada hasta que lo pulses de nuevo.',
+      btnPlayMasteredMix: '🎧 Reproducir Mezcla Masterizada', btnPlayMasteredMixStop: '⏹ Detener',
+      stemsMasteredMixHint: 'Renderiza toda la cadena de stems + Master Bus una vez, y reproduce el resultado de inmediato — no es un grafo en vivo, asi que mover un slider mientras suena no cambia nada hasta que lo pulses de nuevo. Reutiliza el ultimo render mientras nada haya cambiado (sin esperar otros 15-20s), y si lo pulsas de nuevo mientras suena, lo detiene en vez de renderizar otra vez.',
       panelMasterBus: 'Master Bus (compartido)',
       masterBusHint: 'Las tarjetas de Bass Protect / Compresor / Loudness de abajo siempre controlan este unico bus compartido, aplicado una vez que se suman todos los stems — no cambian por pestana de stem como si lo hacen EQ/Saturacion/De-Harsher/Ancho.',
       busSatEnableLabel: 'Saturacion de Bus (glue)', busSatDriveLabel: 'Drive %', busSatMixLabel: 'Mix %',
@@ -8128,6 +8300,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       panelLiveMonitor: 'Live Monitor',
       panelMixingDesk: 'Mixing Desk',
       panelEditHistory: '編集履歴',
+      editorModeLabel: '次の編集は誰が行いますか？', editorModeManual: '🧑 手動', editorModeAi: '🤖 AI支援',
+      editorModeNote: '以降に記録されるすべてのEdit Logエントリに「誰が行ったか」のタグを付けます — 隠すためではなく証跡のためです。Claudeのようなツールにスライダーを操作させる前にAI支援に切り替え、自分で操作を引き継いだら手動に戻してください。モードの切り替え自体もログに記録されるので、どこで引き継ぎが起きたかが正確にわかります。',
+      editorModeLogPrefix: '編集モードを切り替え:',
       btnLogDownload: '📜 ログをダウンロード', logNote: 'ログは(Undoと違って)何も上書きしません、すべての編集、プリセット選択、undo、jumpを実際に起きた順番でそのまま記録します、後で取り消したものも含めて。最終結果にどれだけ人の手による作業が関わったかを証明する記録として使えます。',
       panelSplit: 'セクション分割(曲の途中で雰囲気が変わる)',
       descSplit: 'オンにすると、選んだ時点より後の部分にEQ／コンプレッサー／Bass Protect／サチュレーション／De-Harsher／Width／Vibeを完全に独立して設定でき、なめらかにクロスフェードします。オフのままなら今まで通り — トラック全体に1つの設定だけが適用されます。',
@@ -8147,8 +8322,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       stemSlotVocal: 'Vocal', stemSlotBass: 'Bass', stemSlotDrums: 'ドラム&パーカッション', stemSlotExtra: 'Extra', stemSlotOthers: 'Others',
       btnPlayFullMix: '🔊 フルミックスを再生',
       stemsFullMixHint: '全ステムを未処理のまま合成して再生します — 元の曲全体がどんな感じか素早く確認できます。',
-      btnPlayMasteredMix: '🎧 マスタリング結果を再生',
-      stemsMasteredMixHint: 'ステムチェーン全体＋Master Busを一度レンダリングしてから即座に再生します — ライブグラフではないので、再生中にスライダーを動かしても、もう一度クリックするまで音は変わりません。',
+      btnPlayMasteredMix: '🎧 マスタリング結果を再生', btnPlayMasteredMixStop: '⏹ 停止',
+      stemsMasteredMixHint: 'ステムチェーン全体＋Master Busを一度レンダリングしてから即座に再生します — ライブグラフではないので、再生中にスライダーを動かしても、もう一度クリックするまで音は変わりません。それまでに設定が変わっていなければ前回のレンダリング結果をそのまま再利用します（15〜20秒の待ち直しなし）、再生中にもう一度クリックすると再レンダリングせずそのまま停止します。',
       panelMasterBus: 'Master Bus(共有)',
       masterBusHint: '下のBass Protect／コンプレッサー／Loudnessカードは常にこの1つの共有バスを制御します — 全ステムが合成された後に一度だけ適用され、EQ／サチュレーション／De-Harsher／Widthのようにステムタブごとには切り替わりません。',
       busSatEnableLabel: 'バスサチュレーション(グルー)', busSatDriveLabel: 'Drive %', busSatMixLabel: 'Mix %',
@@ -8386,6 +8561,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       panelLiveMonitor: 'Live Monitor',
       panelMixingDesk: 'Mixing Desk',
       panelEditHistory: '编辑历史',
+      editorModeLabel: '接下来由谁来编辑？', editorModeManual: '🧑 手动', editorModeAi: '🤖 AI辅助',
+      editorModeNote: '为之后记录的每一条编辑日志标注是谁做的——这是为了留痕，而不是为了隐藏什么：在让Claude等工具替你操作滑块之前切换到AI辅助，自己接管时再切回手动。切换模式本身也会被记录，日志会准确显示每次交接发生的位置。',
+      editorModeLogPrefix: '编辑模式已切换为:',
       btnLogDownload: '📜 下载日志', logNote: '日志(与Undo不同)绝不会覆盖任何内容，它按实际发生的顺序完整记录每一次编辑、预设选择、撤销和跳转，包括之后被撤销的部分。可作为证明最终成果中有多少人工主导工作的溯源记录。',
       panelSplit: '分段设置(歌曲中途氛围变化)',
       descSplit: '开启后，所选时间点之后的部分可以拥有完全独立的EQ／压缩器／Bass Protect／饱和／De-Harsher／宽度／Vibe设置，并平滑过渡。保持关闭则和以前完全一样 — 整首歌只用一套设置。',
@@ -8405,8 +8583,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       stemSlotVocal: 'Vocal', stemSlotBass: 'Bass', stemSlotDrums: '鼓组与打击乐', stemSlotExtra: 'Extra', stemSlotOthers: '其他',
       btnPlayFullMix: '🔊 播放完整混音',
       stemsFullMixHint: '播放所有分轨未经处理的合成结果 — 快速参考原始合并歌曲的听感。',
-      btnPlayMasteredMix: '🎧 播放母带结果',
-      stemsMasteredMixHint: '将整个分轨处理链＋Master Bus渲染一次，然后立即播放结果 — 这不是实时图形，所以播放期间拖动滑块不会改变声音，需要再次点击才会生效。',
+      btnPlayMasteredMix: '🎧 播放母带结果', btnPlayMasteredMixStop: '⏹ 停止',
+      stemsMasteredMixHint: '将整个分轨处理链＋Master Bus渲染一次，然后立即播放结果 — 这不是实时图形，所以播放期间拖动滑块不会改变声音，需要再次点击才会生效。只要期间设置没有变化，就会复用上一次的渲染结果（不用再等15-20秒），播放中再次点击会直接停止，而不会重新渲染。',
       panelMasterBus: 'Master Bus(共享)',
       masterBusHint: '下方的Bass Protect／压缩器／Loudness卡片始终控制这一个共享总线 — 在所有分轨合并后统一应用一次，不会像EQ／饱和／De-Harsher／宽度那样按分轨标签切换。',
       busSatEnableLabel: '总线饱和(glue)', busSatDriveLabel: 'Drive %', busSatMixLabel: 'Mix %',
