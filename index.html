@@ -1666,6 +1666,27 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
           <div class="note" style="margin-top:6px;" data-i18n="gonioHintCard">The live goniometer for this is shown next to the waveforms above — it's fixed there so it keeps working even while this card is popped out.</div>
         </div>
 
+        <div class="band-card" data-group="desk">
+          <div class="band-title" data-i18n="bandReverb">Reverb / Space</div>
+          <div class="band-desc" data-i18n="descReverb">Adds a soft, diffuse ambience tail — synthesized in the browser, no sample file involved — so the sound feels like it's happening in a space instead of pasted together dry. Mix sets how much reverb is blended in (parallel send, the dry signal is untouched); Decay sets how long the tail lingers; Pre-delay pushes the tail back slightly so it doesn't blur the attack of a note or word.</div>
+          <div class="prow">
+            <div class="prow-head"><span class="lbl" data-i18n="enableLabel">Enable</span></div>
+            <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim);"><input type="checkbox" id="reverbEnable" style="width:16px;height:16px;"> <span data-i18n="reverbEnableLabel">On — apply reverb</span></label>
+          </div>
+          <div class="prow">
+            <div class="prow-head"><span class="lbl">Mix</span><span class="num-input-group"><input class="num-input" type="number" id="reverbMixNum" step="1"><span class="unit-suffix">%</span></span></div>
+            <input type="range" id="reverbMixSlider" min="0" max="100" step="1" value="20">
+          </div>
+          <div class="prow">
+            <div class="prow-head"><span class="lbl">Decay</span><span class="num-input-group"><input class="num-input" type="number" id="reverbDecayNum" step="0.1"><span class="unit-suffix">s</span></span></div>
+            <input type="range" id="reverbDecaySlider" min="0.3" max="4" step="0.1" value="1.6">
+          </div>
+          <div class="prow">
+            <div class="prow-head"><span class="lbl">Pre-delay</span><span class="num-input-group"><input class="num-input" type="number" id="reverbPredelayNum" step="1"><span class="unit-suffix">ms</span></span></div>
+            <input type="range" id="reverbPredelaySlider" min="0" max="60" step="1" value="15">
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -1955,6 +1976,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   let satPreGain, satShaper, satPostGain, satDryGain, satWetGain, satSum;
   // mid-side stereo widener stage (between Makeup Gain and the Limiter)
   let widthSplitter, widthMidL, widthMidR, widthMid, widthSideL, widthSideR, widthSide, widthPos, widthNeg, widthMerger;
+  // reverb send (after Width, before the Limiter) — see buildReverbImpulse()
+  let reverbConvolver, reverbSend, reverbImpulseDecay = null, reverbImpulsePredelay = null;
   // live-monitor-only tap: stereo split for true-peak, K-weighting chain for LUFS
   let monitorSum, monSplitter, analyserL, analyserR, kShelf, kHp, kAnalyser, silentSink;
 
@@ -1986,6 +2009,35 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       curve[i] = Math.abs(x);
     }
     return curve;
+  }
+
+  // ---- Reverb / Space: a synthesized diffuse impulse response, convolved
+  // via ConvolverNode — no external sample file, keeping the tool's
+  // "single file, zero dependencies" architecture. Independent random noise
+  // per channel gives a wide, diffuse tail; a one-pole lowpass softens the
+  // raw white noise into something closer to soft "air" before the
+  // exponential decay envelope is applied. Deliberately NOT a narrow
+  // resonant/comb-filtered tail — that character is what reads as
+  // "metallic"/ringy, which is the opposite of what this is for. ----
+  function buildReverbImpulse(ctx, decaySec, predelaySec){
+    const sampleRate = ctx.sampleRate;
+    const predelaySamples = Math.max(0, Math.round(predelaySec * sampleRate));
+    const decaySamples = Math.max(1, Math.round(decaySec * sampleRate));
+    const length = predelaySamples + decaySamples;
+    const buffer = ctx.createBuffer(2, length, sampleRate);
+    for(let ch=0; ch<2; ch++){
+      const data = buffer.getChannelData(ch);
+      let lp = 0;
+      for(let i=0; i<predelaySamples; i++) data[i] = 0;
+      for(let i=0; i<decaySamples; i++){
+        const raw = Math.random()*2 - 1;
+        lp += (raw - lp) * 0.35; // one-pole lowpass, softens raw noise toward "air" rather than digital hiss
+        const t = i / decaySamples;
+        const envelope = Math.pow(1 - t, 2.2); // faster-than-linear falloff — reads as a natural room/hall tail, not a synth pad
+        data[predelaySamples + i] = lp * envelope;
+      }
+    }
+    return buffer;
   }
 
   function initGraph(){
@@ -2036,6 +2088,14 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     widthPos = audioCtx.createGain(); widthPos.gain.value = 1;
     widthNeg = audioCtx.createGain(); widthNeg.gain.value = -1;
     widthMerger = audioCtx.createChannelMerger(2);
+
+    // reverb send: taps the post-width signal, convolves it, and sums the
+    // wet tail back in — additive send (dry path is untouched), same idea
+    // as Saturation's parallel wet/dry blend. reverbSend.gain doubles as
+    // the "Mix" control (0 = fully off, matches satMix/deThresh convention).
+    reverbConvolver = audioCtx.createConvolver();
+    reverbConvolver.buffer = buildReverbImpulse(audioCtx, 1.6, 0.015);
+    reverbSend = audioCtx.createGain(); reverbSend.gain.value = 0;
 
     // live monitor tap — silent branch, never touches the audible output
     monitorSum = audioCtx.createGain();
@@ -2095,6 +2155,10 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     widthMid.connect(widthMerger, 0, 0); widthPos.connect(widthMerger, 0, 0);
     widthMid.connect(widthMerger, 0, 1); widthNeg.connect(widthMerger, 0, 1);
     widthMerger.connect(limiter);
+    // reverb send: additive, doesn't touch the dry path above
+    widthMerger.connect(reverbSend);
+    reverbSend.connect(reverbConvolver);
+    reverbConvolver.connect(limiter);
     limiter.connect(wetGain);
     dryGain.connect(analyser);
     wetGain.connect(analyser);
@@ -2175,6 +2239,16 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       const w = val('width')/100;
       widthPos.gain.value = w;
       widthNeg.gain.value = -w;
+    }
+    if(reverbConvolver){
+      const reverbOn = document.getElementById('reverbEnable') ? document.getElementById('reverbEnable').checked : false;
+      const decaySec = val('reverbDecay');
+      const predelaySec = val('reverbPredelay')/1000;
+      if(reverbImpulseDecay !== decaySec || reverbImpulsePredelay !== predelaySec){
+        reverbConvolver.buffer = buildReverbImpulse(audioCtx, decaySec, predelaySec);
+        reverbImpulseDecay = decaySec; reverbImpulsePredelay = predelaySec;
+      }
+      reverbSend.gain.value = reverbOn ? val('reverbMix')/100 : 0;
     }
     updateIntensityGains();
     updateEqCurve();
@@ -2703,11 +2777,18 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   bindPair('ceil', 1);
   bindPair('intensity', 0);
   bindPair('width', 0);
+  bindPair('reverbMix', 0);
+  bindPair('reverbDecay', 1);
+  bindPair('reverbPredelay', 0);
+  document.getElementById('reverbEnable').addEventListener('change', ()=>{
+    applyAllParams(); invalidateMaster(); scheduleHistoryPush('Manual edit', false, 'reverbEnable');
+  });
 
   // ---- edit history (undo + log) ----
   const PARAM_KEYS = ['lowFreq','lowGain','subGain','bassGain','lowmidGain','midFreq','midGain','midQ','himidGain','presenceGain','highFreq','highGain',
     'satAmount','satMix',
     'deFreq','deSens','deAmount','thresh','ratio','attack','release','makeup','ceil','intensity','width',
+    'reverbMix','reverbDecay','reverbPredelay',
     'bassFreq','bassThresh','bassRatio','bassAttack','bassRelease',
     // Master Bus glue (Bus Saturation/Sidechain Duck amount+release) — these
     // have matching …Slider elements so val() already works on them for
@@ -3127,7 +3208,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     'bassFreq','bassThresh','bassRatio','bassAttack','bassRelease',
     'makeup','ceil','intensity',
     'deFreq','deSens','deAmount',
-    'width'
+    'width',
+    'reverbMix','reverbDecay','reverbPredelay'
   ];
   const SETTINGS_LABELS = {
     lowFreq:'Low Shelf Freq', lowGain:'Low Shelf Gain',
@@ -3141,7 +3223,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     bassAttack:'Bass Protect Attack', bassRelease:'Bass Protect Release',
     makeup:'Makeup Gain', ceil:'Limiter Ceiling', intensity:'Mastering Intensity',
     deFreq:'De-Harsher Detect Freq', deSens:'De-Harsher Sensitivity', deAmount:'De-Harsher Reduction',
-    width:'Stereo Width'
+    width:'Stereo Width',
+    reverbMix:'Reverb Mix', reverbDecay:'Reverb Decay', reverbPredelay:'Reverb Pre-delay'
   };
 
   function getSettingsSnapshot(){
@@ -3153,6 +3236,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     snap.bassEnable = document.getElementById('bassEnable').checked;
     snap.satEnable = document.getElementById('satEnable').checked;
     snap.deEnable = document.getElementById('deEnable').checked;
+    snap.reverbEnable = document.getElementById('reverbEnable').checked;
     return snap;
   }
 
@@ -3166,6 +3250,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     if(snap.bassEnable != null) document.getElementById('bassEnable').checked = !!snap.bassEnable;
     if(snap.satEnable != null) document.getElementById('satEnable').checked = !!snap.satEnable;
     if(snap.deEnable != null) document.getElementById('deEnable').checked = !!snap.deEnable;
+    if(snap.reverbEnable != null) document.getElementById('reverbEnable').checked = !!snap.reverbEnable;
     if(snap.presetValue != null){
       document.getElementById('presetSelect').value = snap.presetValue;
       document.getElementById('presetDesc').textContent = currentPresetDescText();
@@ -3282,6 +3367,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     lines.splice(18, 0, `${prefix} — Bass Protect Enable: ${snap.bassEnable ? 'On' : 'Off'}`);
     lines.splice(12, 0, `${prefix} — Saturation Enable: ${snap.satEnable ? 'On' : 'Off'}`);
     lines.push(`${prefix} — De-Harsher Enable: ${snap.deEnable ? 'On' : 'Off'}`);
+    lines.push(`${prefix} — Reverb Enable: ${snap.reverbEnable ? 'On' : 'Off'}`);
     lines.push(`${prefix} — Preset: ${snap.presetValue || ''}`);
     lines.push(`${prefix} — Genre Tags: ${(snap.genreTags||[]).join(', ')}`);
     lines.push(`${prefix} — Vibe Tags: ${(snap.vibeTags||[]).join(', ')}`);
@@ -3310,6 +3396,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const lines = STEM_ONLY_KEYS.map(k => `${prefix} — ${SETTINGS_LABELS[k]}: ${snap[k]}`);
     lines.push(`${prefix} — Saturation Enable: ${snap.satEnable ? 'On' : 'Off'}`);
     lines.push(`${prefix} — De-Harsher Enable: ${snap.deEnable ? 'On' : 'Off'}`);
+    lines.push(`${prefix} — Reverb Enable: ${snap.reverbEnable ? 'On' : 'Off'}`);
     lines.push(`${prefix} — Preset: ${snap.presetValue || ''}`);
     lines.push(`${prefix} — Genre Tags: ${(snap.genreTags||[]).join(', ')}`);
     lines.push(`${prefix} — Vibe Tags: ${(snap.vibeTags||[]).join(', ')}`);
@@ -3343,6 +3430,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     lines.splice(18, 0, `Bass Protect Enable: ${snap.bassEnable ? 'On' : 'Off'}`);
     lines.splice(12, 0, `Saturation Enable: ${snap.satEnable ? 'On' : 'Off'}`);
     lines.push(`De-Harsher Enable: ${snap.deEnable ? 'On' : 'Off'}`);
+    lines.push(`Reverb Enable: ${snap.reverbEnable ? 'On' : 'Off'}`);
     lines.push(`Preset: ${document.getElementById('presetSelect').value || ''}`);
     lines.push(`Genre Tags: ${collectLayerValues(GENRE_LAYER_IDS).join(', ')}`);
     lines.push(`Vibe Tags: ${collectLayerValues(VIBE_LAYER_IDS).join(', ')}`);
@@ -3519,6 +3607,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       if(rawLabel === 'Bass Protect Enable'){ target.bassEnable = /^on$/i.test(valueStr); return; }
       if(rawLabel === 'Saturation Enable'){ target.satEnable = /^on$/i.test(valueStr); return; }
       if(rawLabel === 'De-Harsher Enable'){ target.deEnable = /^on$/i.test(valueStr); return; }
+      if(rawLabel === 'Reverb Enable'){ target.reverbEnable = /^on$/i.test(valueStr); return; }
       if(rawLabel === 'Preset'){ target.presetValue = valueStr; return; }
       if(rawLabel === 'Genre Tags'){ target.genreTags = valueStr ? valueStr.split(',').map(s=>s.trim()).filter(Boolean) : []; return; }
       if(rawLabel === 'Vibe Tags'){ target.vibeTags = valueStr ? valueStr.split(',').map(s=>s.trim()).filter(Boolean) : []; return; }
@@ -3976,6 +4065,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     document.getElementById('bassEnable').checked = !!snap.bassEnable;
     document.getElementById('satEnable').checked = !!snap.satEnable;
     document.getElementById('deEnable').checked = !!snap.deEnable;
+    document.getElementById('reverbEnable').checked = !!snap.reverbEnable;
     document.getElementById('presetSelect').value = snap.presetValue || '';
     document.getElementById('presetDesc').textContent = currentPresetDescText();
     VIBE_LAYER_IDS.forEach(id=>{
@@ -4020,6 +4110,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     });
     snap.satEnable = document.getElementById('satEnable').checked;
     snap.deEnable = document.getElementById('deEnable').checked;
+    snap.reverbEnable = document.getElementById('reverbEnable').checked;
     snap.presetValue = document.getElementById('presetSelect').value;
     snap.vibeTags = collectLayerValues(VIBE_LAYER_IDS);
     snap.vibeBase = vibeBaseSnapshot ? {...vibeBaseSnapshot} : null;
@@ -4038,6 +4129,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     });
     if(snap.satEnable != null) document.getElementById('satEnable').checked = !!snap.satEnable;
     if(snap.deEnable != null) document.getElementById('deEnable').checked = !!snap.deEnable;
+    if(snap.reverbEnable != null) document.getElementById('reverbEnable').checked = !!snap.reverbEnable;
     document.getElementById('presetSelect').value = snap.presetValue || '';
     document.getElementById('presetDesc').textContent = currentPresetDescText();
     VIBE_LAYER_IDS.forEach(id=>{
@@ -5711,6 +5803,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const deOn = readSourceChecked(source,'deEnable');
     const bassOn = readSourceChecked(source,'bassEnable');
     const width = readSourceVal(source,'width')/100;
+    const reverbOn = readSourceChecked(source,'reverbEnable');
+    const reverbMix = reverbOn ? readSourceVal(source,'reverbMix')/100 : 0;
     // Mastering Intensity lives on the shared Master Bus (Loudness card,
     // STEM_BUS_KEYS) — always read straight off the live slider rather than
     // through readSourceVal(), since a per-stem snapshot no longer carries
@@ -5738,6 +5832,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       bassThresh: bassOn ? readSourceVal(source,'bassThresh') : 0, bassRatio: bassOn ? readSourceVal(source,'bassRatio') : 1,
       bassAttack: readSourceVal(source,'bassAttack')/1000, bassRelease: readSourceVal(source,'bassRelease')/1000,
       width, widthNeg: -width,
+      reverbMix, reverbDecaySec: readSourceVal(source,'reverbDecay'), reverbPredelaySec: readSourceVal(source,'reverbPredelay')/1000,
       dryMix: 1-intensity, wetMix: intensity,
     };
   }
@@ -5828,6 +5923,15 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       wMid.connect(wMerge,0,0); wPos.connect(wMerge,0,0);
       wMid.connect(wMerge,0,1); wNeg.connect(wMerge,0,1);
       wMerge.connect(wet); wet.connect(stemSum);
+      // reverb send — post-width, additive (doesn't touch the dry/wet path
+      // above). Only built when actually in use, since a ConvolverNode +
+      // fresh impulse buffer isn't free and most stems leave this off.
+      if(e.reverbMix > 0){
+        const reverbConvO = offlineCtx.createConvolver();
+        reverbConvO.buffer = buildReverbImpulse(offlineCtx, e.reverbDecaySec, e.reverbPredelaySec);
+        const reverbSendO = offlineCtx.createGain(); reverbSendO.gain.value = e.reverbMix;
+        wMerge.connect(reverbSendO); reverbSendO.connect(reverbConvO); reverbConvO.connect(stemSum);
+      }
       const duckGain = offlineCtx.createGain(); duckGain.gain.value = 1;
       stemSum.connect(duckGain); duckGain.connect(busInput);
       duckGains[id] = duckGain;
@@ -6050,6 +6154,18 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     wMid.connect(wMerge, 0, 0); wPos.connect(wMerge, 0, 0);
     wMid.connect(wMerge, 0, 1); wNeg.connect(wMerge, 0, 1);
     wMerge.connect(lim);
+    // reverb send — additive, post-width. NOTE: uses Section 1's reverb
+    // settings for the whole render even when Split is on (like Saturation's
+    // curve, a Convolver's buffer can't be smoothly automated across the
+    // crossfade window; unlike Saturation, no dual-branch crossfade was
+    // built for this yet — next-session candidate if Split+Reverb together
+    // turns out to matter in practice).
+    if(e1.reverbMix > 0){
+      const reverbConvO = offlineCtx.createConvolver();
+      reverbConvO.buffer = buildReverbImpulse(offlineCtx, e1.reverbDecaySec, e1.reverbPredelaySec);
+      const reverbSendO = offlineCtx.createGain(); reverbSendO.gain.value = e1.reverbMix;
+      wMerge.connect(reverbSendO); reverbSendO.connect(reverbConvO); reverbConvO.connect(lim);
+    }
     lim.connect(wet); wet.connect(offlineCtx.destination);
     src.start(0);
     return offlineCtx.startRendering();
@@ -7637,6 +7753,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       envNeedMaster: 'Run Mastering first — need a Master to compare Original against.', envWindowTooLong: 'That window is past the end of the track — try a smaller Start or Duration.',
       bandWidth: 'Stereo Width',
       descWidth: 'Splits the signal into mid (center) and side (stereo difference) and scales the side amount. Below 100% narrows toward mono; above 100% widens the stereo image. Mono sources are unaffected since they have no side signal to begin with.',
+      bandReverb: 'Reverb / Space', descReverb: 'Adds a soft, diffuse ambience tail — synthesized in the browser, no sample file involved — so the sound feels like it\'s happening in a space instead of pasted together dry. Mix sets how much reverb is blended in (parallel send, the dry signal is untouched); Decay sets how long the tail lingers; Pre-delay pushes the tail back slightly so it doesn\'t blur the attack of a note or word.',
+      reverbEnableLabel: 'On — apply reverb',
       eqCurveHint: 'Drag the three dots on the spectrum to set Low Shelf / Mid Peak / High Shelf directly — the Mixing Desk numbers below move with them.',
       gonioHint: 'Live goniometer — the more the shape leans toward horizontal, the wider the stereo image. A straight vertical line means mono.',
       gonioSideTitle: 'Stereo Width', gonioHintCard: 'The live goniometer for this is shown next to the waveforms above — it stays fixed there so it keeps working even while this card is popped out.',
@@ -7898,6 +8016,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       envNeedMaster: 'Run Mastering을 먼저 눌러주세요 — 원본과 비교하려면 마스터가 있어야 해요.', envWindowTooLong: '그 구간이 트랙 끝을 넘어갔어요 — Start나 Duration을 더 작게 해보세요.',
       bandWidth: 'Stereo Width',
       descWidth: '신호를 mid(가운데)와 side(좌우 차이 성분)로 나눠서 side의 양을 조절해요. 100% 아래로 내리면 모노에 가까워지고, 100% 위로 올리면 스테레오 폭이 넓어져요. 모노 음원은 애초에 side 성분이 없어서 영향을 안 받아요.',
+      bandReverb: '리버브 / 공간감', descReverb: '브라우저 안에서 합성한 부드럽고 확산된 잔향 꼬리를 더해요 — 샘플 파일 없이 즉석에서 만들어져서, 소리가 따로 붙여넣은 것처럼 건조하게 들리지 않고 실제 공간 안에 있는 것처럼 느껴지게 해줘요. Mix는 리버브를 얼마나 섞을지(병렬 센드라 드라이 신호 자체는 그대로 유지돼요), Decay는 잔향이 얼마나 오래 남을지, Pre-delay는 잔향이 음/가사의 시작을 흐리지 않도록 살짝 뒤로 미루는 정도를 정해요.',
+      reverbEnableLabel: '켜짐 — 리버브 적용',
       eqCurveHint: '스펙트럼 위 세 개의 점을 드래그하면 Low Shelf / Mid Peak / High Shelf를 바로 조정할 수 있어요 — 아래 Mixing Desk 숫자도 같이 움직여요.',
       gonioHint: '라이브 고니오미터예요 — 모양이 가로로 퍼질수록 스테레오 폭이 넓다는 뜻이고, 세로 일자선이면 모노예요.',
       gonioSideTitle: 'Stereo Width', gonioHintCard: '실시간 고니오미터는 위쪽 파형 옆에 고정으로 표시돼요 — 이 카드를 팝업으로 분리해도 계속 잘 작동하도록 고정해뒀어요.',
@@ -8159,6 +8279,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       envNeedMaster: 'Primero pulsa Run Mastering — necesitas un Máster para compararlo con el Original.', envWindowTooLong: 'Esa ventana se pasa del final de la pista — prueba con un Inicio o Duración más pequeños.',
       bandWidth: 'Stereo Width',
       descWidth: 'Divide la señal en mid (centro) y side (diferencia estéreo) y escala la cantidad de side. Por debajo de 100% se estrecha hacia mono; por encima de 100% amplía la imagen estéreo. Las fuentes mono no se ven afectadas porque no tienen señal side.',
+      bandReverb: 'Reverb / Espacio', descReverb: 'Añade una cola de ambiente suave y difusa — sintetizada en el navegador, sin ningún archivo de muestra — para que el sonido se sienta como si ocurriera en un espacio en vez de pegado en seco. Mix fija cuánta reverb se mezcla (envío paralelo, la señal seca queda intacta); Decay fija cuánto dura la cola; Pre-delay retrasa ligeramente la cola para que no difumine el ataque de una nota o palabra.',
+      reverbEnableLabel: 'Activado — aplicar reverb',
       eqCurveHint: 'Arrastra los tres puntos del espectro para ajustar directamente Low Shelf / Mid Peak / High Shelf — los números del Mixing Desk de abajo se mueven junto con ellos.',
       gonioHint: 'Goniómetro en vivo — cuanto más se incline la forma hacia lo horizontal, más ancha es la imagen estéreo. Una línea vertical recta significa mono.',
       gonioSideTitle: 'Stereo Width', gonioHintCard: 'El goniómetro en vivo se muestra junto a las formas de onda de arriba — se queda fijo ahí para seguir funcionando aunque esta tarjeta esté separada en otra ventana.',
@@ -8420,6 +8542,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       envNeedMaster: 'まずRun Masteringを押してください — オリジナルと比較するにはMasterが必要です。', envWindowTooLong: 'その区間はトラックの終わりを超えています — StartかDurationをもっと小さくしてみてください。',
       bandWidth: 'Stereo Width',
       descWidth: '信号をmid（中央）とside（左右差分）に分割し、sideの量を調整します。100%未満でモノラルに近づき、100%を超えるとステレオイメージが広がります。モノラル音源はside成分がないため影響を受けません。',
+      bandReverb: 'リバーブ / 空間', descReverb: 'ブラウザ内で合成した柔らかく拡散したアンビエンステールを加えます — サンプルファイル不要で、音が乾いた貼り付けではなく、実際の空間で鳴っているように感じさせます。Mixはリバーブをどれだけ混ぜるか(パラレルセンドなのでドライ信号自体はそのまま)、Decayはテールがどれだけ長く残るか、Pre-delayは音や言葉のアタックをぼやけさせないようテールを少し後ろにずらす量を設定します。',
+      reverbEnableLabel: 'オン — リバーブを適用',
       eqCurveHint: 'スペクトラム上の3つの点をドラッグすると、Low Shelf / Mid Peak / High Shelfを直接調整できます — 下のMixing Deskの数値も連動して動きます。',
       gonioHint: 'ライブゴニオメーターです — 形が横に広がるほどステレオの幅が広いことを意味し、まっすぐな縦線はモノラルを意味します。',
       gonioSideTitle: 'Stereo Width', gonioHintCard: 'ライブゴニオメーターは上の波形の横に固定表示されます — このカードを別ウィンドウに分離しても動作し続けます。',
@@ -8681,6 +8805,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       envNeedMaster: '请先点击Run Mastering — 需要有母带才能与原始进行对比。', envWindowTooLong: '该区间超出了曲目末尾 — 请尝试更小的起始或时长。',
       bandWidth: 'Stereo Width',
       descWidth: '将信号拆分为 mid（中央）和 side（立体声差异）两部分，并调整 side 的量。低于 100% 会趋向单声道；高于 100% 会拓宽立体声图像。单声道音源本身没有 side 成分，因此不受影响。',
+      bandReverb: '混响 / 空间感', descReverb: '添加柔和、扩散的氛围尾音 — 在浏览器内合成，不依赖任何采样文件 — 让声音听起来像是发生在一个真实空间里，而不是干巴巴地拼贴在一起。Mix 决定混入多少混响(并联发送，干信号本身不受影响)；Decay 决定尾音持续多久；Pre-delay 让尾音稍微延后，避免糊掉一个音符或字词的起始。',
+      reverbEnableLabel: '开启 — 应用混响',
       eqCurveHint: '拖动频谱上的三个点即可直接调整 Low Shelf / Mid Peak / High Shelf——下方 Mixing Desk 的数值会同步变化。',
       gonioHint: '实时相位表（Goniometer）——形状越偏向水平，立体声宽度越宽；一条竖直的直线代表单声道。',
       gonioSideTitle: 'Stereo Width', gonioHintCard: '实时相位表固定显示在上方波形旁边 — 即使把这张卡片弹出到单独窗口，它也能继续正常工作。',
