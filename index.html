@@ -1748,7 +1748,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       <div class="platform-list" id="platformList">
         <div class="history-empty" data-i18n="platformListEmpty">Run Mastering to check this master against platform loudness targets.</div>
       </div>
-      <div class="note" data-i18n="lufsApproxNote">Integrated LUFS uses a simplified ITU-R BS.1770 K-weighting approximation. True Peak is estimated via 4x oversampling. Treat both as close estimates, not certified measurements.</div>
+      <div class="note" data-i18n="lufsApproxNote">Integrated LUFS uses BS.1770 energy averaging and gating. True Peak uses 4-phase sinc reconstruction. Independently verify final exports; this is not a certified meter.</div>
     </div>
 
     <div class="panel">
@@ -1802,6 +1802,13 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       <div class="suggestion-list" id="suggestionList">
         <div class="history-empty" data-i18n="suggestionListEmpty">Run Mastering to get concrete suggestions for reaching a streaming-safe loudness, or pushing louder without breaking balance.</div>
       </div>
+<section class="card" style="margin:18px 0;padding:18px;border:1px solid #355451;border-radius:12px;">
+<h3 id="qcTitle">Output QC · 출력 검사 (2026-11-06)</h3>
+<p id="qcAbout">LUFS 에너지 평균 보정 · 음색 설정 유지 · 최종 피크 제어 · 좌우/모노 검사</p>
+<p id="qcWarning">Engineering checks only; no claim of headache prevention.</p>
+<pre id="integrityReport" style="white-space:pre-wrap;font-size:12px;line-height:1.6">Run Final Mastering / 파이널 마스터링을 실행하세요.</pre>
+<button type="button" class="dl-btn" id="integrityDownloadBtn">QC JSON 다운로드 / Download QC JSON</button>
+</section>
       <button class="dl-btn" id="dlBtn" disabled style="margin-top:14px;">Download WAV (24-bit)</button>
       <div id="stemDownloadVariants" class="hidden" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
         <button class="dl-btn" id="dlMrBtn" style="background:var(--panel-2); color:var(--accent); border:1px solid var(--line);" data-i18n="btnDlMr">🎤 Download MR / Instrumental (no vocal)</button>
@@ -2709,6 +2716,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   function updateAllCompCurves(){ COMP_CURVES.forEach(updateCompCurve); }
 
   function invalidateMaster(){
+    finalOutputReport=null; showIntegrityReport();
     if(masteredBuffer){
       masteredBuffer = null;
       waveEmptyB.style.display = 'flex';
@@ -3079,63 +3087,109 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   // applied to Mastering Intensity in that SAME pass (not a follow-up pass) —
   // no wasted iteration spent "discovering" that Makeup Gain is maxed out.
   // Used by the Loudness Target + Final Mastering step below, NOT by presets.
-  async function calibrateToTarget(targetLufs){
-    if(!audioBuffer) return;
-    let measured;
-    let exhausted = false;
-    let lastDelta = 0;
-    for(let i=0; i<8; i++){
-      const measureBuf = await renderMaster();
-      measured = await estimateIntegratedLufs(measureBuf);
-      const delta = targetLufs - measured;
-      lastDelta = delta;
-      if(Math.abs(delta) < 0.3) break; // close enough
-
-      const currentMakeup = val('makeup');
-      const desiredMakeup = currentMakeup + delta;
-      const clampedMakeup = Math.min(12, Math.max(0, desiredMakeup));
-      const makeupApplied = clampedMakeup - currentMakeup; // how much of delta Makeup Gain actually absorbed
-      const leftover = delta - makeupApplied; // the rest, if Makeup Gain clipped
-
-      let changed = false;
-      if(clampedMakeup !== currentMakeup){
-        document.getElementById('makeupSlider').value = clampedMakeup;
-        document.getElementById('makeupSlider').dispatchEvent(new Event('input'));
-        changed = true;
-      }
-      if(Math.abs(leftover) > 0.3){
-        // Makeup Gain clipped before covering the full change — use Intensity
-        // for the remainder right away, in this same pass.
-        const currentIntensity = val('intensity');
-        const intensityStep = leftover > 0 ? 15 : -15;
-        const newIntensity = Math.min(100, Math.max(0, currentIntensity + intensityStep));
-        if(newIntensity !== currentIntensity){
-          document.getElementById('intensitySlider').value = newIntensity;
-          document.getElementById('intensitySlider').dispatchEvent(new Event('input'));
-          changed = true;
+  // Offline output stage: preserves every Mixing Desk control. No phase repair,
+  // denoising or medical inference is attempted by this stage.
+  async function applyFinalOutput(buf,target,ceiling){
+    const initial=await estimateIntegratedLufs(buf);
+    if(!Number.isFinite(initial))return {buffer:buf,report:{status:'silent-or-too-short',initialLufs:null}};
+    const initialPeak=await estimateTruePeak(buf);
+    let gainDb=target-initial;
+    if(gainDb>12)throw new Error('More than 12 dB gain required. Review the source first.');
+    const cap=Math.min(-1.2,ceiling), margin=.25;
+    const rate=Math.min(192000,buf.sampleRate*4);
+    let source=buf;
+    // Only engage dynamics when a constant gain would exceed the peak ceiling.
+    const needsLimit=initialPeak+gainDb>cap-margin;
+    if(needsLimit)source=await resampleBuffer(buf,rate);
+    let result=null,measured=initial,peak=initialPeak,maxReduction=0,appliedGainDb=gainDb;
+    for(let pass=0;pass<4;pass++){
+      appliedGainDb=gainDb;
+      const gain=Math.pow(10,gainDb/20),limit=Math.pow(10,(cap-margin)/20);
+      const tmp=new AudioBuffer({numberOfChannels:source.numberOfChannels,length:source.length,sampleRate:source.sampleRate});
+      let envelope=null;
+      if(needsLimit){
+        envelope=new Float32Array(source.length);envelope.fill(1);
+        for(let c=0;c<source.numberOfChannels;c++){
+          const d=source.getChannelData(c);
+          for(let i=0;i<d.length;i++)envelope[i]=Math.min(envelope[i],limit/(Math.abs(d[i]*gain)||1e-30));
         }
+        // Full-file lookahead: smooth backwards into a peak, then release forwards.
+        // One common envelope preserves the L/R ratio and adds no timeline delay.
+        const attack=1-Math.exp(-1/(.005*source.sampleRate));
+        const release=1-Math.exp(-1/(.080*source.sampleRate));
+        let g=1;
+        for(let i=envelope.length-1;i>=0;i--){g=Math.min(envelope[i],g+(1-g)*attack);envelope[i]=g;}
+        g=1;let minGain=1;
+        for(let i=0;i<envelope.length;i++){g=Math.min(envelope[i],g+(1-g)*release);envelope[i]=g;minGain=Math.min(minGain,g);}
+        maxReduction=-20*Math.log10(Math.max(minGain,1e-30));
       }
-      if(!changed){ exhausted = true; break; } // both Makeup Gain and Intensity are maxed — nothing left to push
+      for(let c=0;c<source.numberOfChannels;c++){
+        const s=source.getChannelData(c),d=tmp.getChannelData(c);
+        for(let i=0;i<s.length;i++)d[i]=s[i]*gain*(envelope?envelope[i]:1);
+      }
+      result=needsLimit?await resampleBuffer(tmp,buf.sampleRate):tmp;
+      // Resampling may round the frame count; preserve the source timeline exactly.
+      if(result.length!==buf.length){const fixed=new AudioBuffer({numberOfChannels:buf.numberOfChannels,length:buf.length,sampleRate:buf.sampleRate});for(let c=0;c<buf.numberOfChannels;c++)fixed.copyToChannel(result.getChannelData(c).subarray(0,buf.length),c);result=fixed;}
+      peak=await estimateTruePeak(result);
+      if(peak>cap){const trim=Math.pow(10,(cap-peak-.05)/20);for(let c=0;c<result.numberOfChannels;c++){const d=result.getChannelData(c);for(let i=0;i<d.length;i++)d[i]*=trim;}peak=await estimateTruePeak(result);}
+      measured=await estimateIntegratedLufs(result);
+      if(Math.abs(target-measured)<.1||maxReduction>6)break;
+      gainDb+=target-measured;
+      if(gainDb>12)break;
     }
-
-    masteredBuffer = await renderMaster();
-    drawWaveform(masteredBuffer, waveCanvasB, waveWrapB, waveCtxB, 'rgba(242,165,65,0.9)');
-    waveEmptyB.style.display = 'none';
-    setMode('B');
-    await updateMasterSummary(masteredBuffer);
-
-    const warnEl = document.getElementById('calibrateWarning');
-    if(exhausted && Math.abs(lastDelta) >= 0.3){
-      const t = T[currentLang];
-      const gap = Math.abs(lastDelta).toFixed(1);
-      warnEl.textContent = lastDelta > 0
-        ? t.calibrateWarnQuiet(gap, targetLufs)
-        : t.calibrateWarnLoud(gap, targetLufs);
-      warnEl.classList.remove('hidden');
-    } else {
-      warnEl.classList.add('hidden');
-    }
+    return {buffer:result,report:{status:Math.abs(target-measured)<=.2&&peak<=cap&&maxReduction<=6?'target-met':'review-required',targetLufs:target,ceilingDbtp:cap,initialLufs:initial,outputLufs:measured,truePeakDbtp:peak,outputGainDb:appliedGainDb,maximumLimiterReductionDb:maxReduction,sampleRate:buf.sampleRate,frames:buf.length,limiter:needsLimit?'oversampled stereo-linked 5ms lookahead / 80ms release':'not engaged'}};
   }
+
+  function inspectAudioIntegrity(buf){
+    const left=buf.getChannelData(0),right=buf.getChannelData(Math.min(1,buf.numberOfChannels-1));
+    let ll=0,rr=0,lr=0,peak=0,nonfinite=0,clips=0,dl=0,dr=0;
+    const window=Math.round(buf.sampleRate*.4);let negative=0,active=0,wl=0,wr=0,wlr=0;
+    const clickCandidates=[];
+    for(let i=0;i<buf.length;i++){
+      const l=left[i],r=right[i];if(!Number.isFinite(l)||!Number.isFinite(r)){nonfinite++;continue;}
+      ll+=l*l;rr+=r*r;lr+=l*r;dl+=l;dr+=r;wl+=l*l;wr+=r*r;wlr+=l*r;peak=Math.max(peak,Math.abs(l),Math.abs(r));
+      if(Math.max(Math.abs(l),Math.abs(r))>=1)clips++;
+      if(i>0&&i<buf.length-1&&clickCandidates.length<100){
+        const residualL=Math.abs(l-(left[i-1]+left[i+1])*.5),residualR=Math.abs(r-(right[i-1]+right[i+1])*.5);
+        if((residualL>.3&&Math.abs(left[i-1]-left[i+1])<.03)||(residualR>.3&&Math.abs(right[i-1]-right[i+1])<.03))clickCandidates.push(i/buf.sampleRate);
+      }
+      if((i+1)%window===0){if((wl+wr)/window>1e-7){active++;if(wlr/Math.sqrt(wl*wr||1)<-.2)negative++;}wl=0;wr=0;wlr=0;}
+    }
+    const energy=(ll+rr)/(2*buf.length),mono=(ll+rr+2*lr)/(4*buf.length);
+    return {channels:buf.numberOfChannels,nonfiniteSamples:nonfinite,clippedFrames:clips,dcOffset:[dl/buf.length,dr/buf.length],correlation:ll&&rr?lr/Math.sqrt(ll*rr):null,monoPowerChangeDb:energy?10*Math.log10(Math.max(mono,1e-30)/energy):null,crestFactorDb:energy?20*Math.log10(peak/Math.sqrt(energy)):null,negativeCorrelationWindows:negative,activeWindows:active,isolatedClickCandidatesFirst100:clickCandidates,note:'Correlation and transient candidates are engineering indicators, not a diagnosis. Stereo effects and percussion can trigger flags. No automatic phase inversion or click deletion.'};
+  }
+  let finalOutputReport=null;
+  async function calibrateToTarget(targetLufs){
+    if(!audioBuffer)return;
+    const rendered=await renderMaster();
+    const finished=await applyFinalOutput(rendered,targetLufs,val('ceil'));
+    masteredBuffer=finished.buffer;finalOutputReport={version:'2026-11-06-qc1',scope:'Rendered buffer before export/resampling/encoding; verify delivered WAV independently. Not medical screening.',...finished.report,integrity:inspectAudioIntegrity(masteredBuffer)};
+    logEvent('Final Output',JSON.stringify(finalOutputReport),snapshotParams());
+    drawWaveform(masteredBuffer,waveCanvasB,waveWrapB,waveCtxB,'rgba(242,165,65,0.9)');waveEmptyB.style.display='none';setMode('B');
+    await updateMasterSummary(masteredBuffer);
+    const warnEl=document.getElementById('calibrateWarning');
+    warnEl.classList.toggle('hidden',finished.report.status==='target-met');
+    if(finished.report.status!=='target-met')warnEl.textContent='Target not met without further review. / 목표 또는 입력 상태를 확인하세요.';
+    showIntegrityReport();
+  }
+
+  const QC_TEXT={
+    en:{title:'Output QC',about:'Energy-based LUFS · Preserved tone settings · Final peak control · Stereo/mono checks',warning:'Engineering checks only. Not a headache-prevention or medical screening tool.',download:'Download QC JSON',pending:'Run Final Mastering to inspect the rendered output.',empty:'Silence, below gate, or shorter than 400 ms: no normalization applied.',note:'Flags are candidates, not confirmed defects. Stereo effects and percussion can trigger them. No automatic phase inversion or click deletion.'},
+    ko:{title:'출력 검사',about:'LUFS 에너지 평균 · 음색 설정 유지 · 최종 피크 제어 · 좌우/모노 검사',warning:'음향 품질 점검입니다. 두통 예방·의학적 진단 기능이 아닙니다.',download:'QC JSON 다운로드',pending:'파이널 마스터링을 실행하면 출력 검사 결과를 표시합니다.',empty:'무음·게이트 미만·400 ms 미만 입력은 증폭하지 않았습니다.',note:'표시는 결함 확정이 아닌 후보입니다. 스테레오 효과·타악기도 검출될 수 있습니다. 자동 위상 반전이나 클릭 삭제는 하지 않습니다.'},
+    es:{title:'Control de salida',about:'LUFS por energía · Ajustes de timbre conservados · Control de picos · Estéreo/mono',warning:'Solo control de audio. No previene cefaleas ni realiza diagnósticos médicos.',download:'Descargar QC JSON',pending:'Ejecute la masterización final para inspeccionar la salida.',empty:'Silencio, bajo el umbral o menos de 400 ms: sin normalización.',note:'Las marcas son candidatos, no defectos confirmados. Los efectos estéreo y la percusión pueden activarlas. No se invierte la fase ni se borran clics automáticamente.'},
+    ja:{title:'出力チェック',about:'エネルギー平均LUFS · 音色設定を維持 · 最終ピーク制御 · ステレオ/モノ確認',warning:'音響品質の確認用です。頭痛予防や医療診断ではありません。',download:'QC JSONを保存',pending:'最終マスタリングを実行すると出力の検査結果を表示します。',empty:'無音・ゲート未満・400 ms未満の入力は増幅しません。',note:'検出は候補であり、欠陥の確定ではありません。ステレオ効果や打楽器も検出されます。自動の位相反転やクリック削除は行いません。'},
+    zh:{title:'输出检查',about:'能量平均LUFS · 保留音色设置 · 最终峰值控制 · 立体声/单声道检查',warning:'仅供音频质量检查，不用于预防头痛或医疗诊断。',download:'下载QC JSON',pending:'运行最终母带处理后查看输出检查结果。',empty:'静音、低于门限或不足400毫秒的输入不进行增益归一化。',note:'标记只是候选项，不代表已确认的缺陷。立体声效果和打击乐也可能触发标记。不自动反转相位或删除点击声。'}
+  };
+  function showIntegrityReport(){
+    const box=document.getElementById('integrityReport');if(!box)return;
+    const t=QC_TEXT[currentLang]||QC_TEXT.en;
+    document.getElementById('qcTitle').textContent=t.title+' · 2026-11-06';document.getElementById('qcAbout').textContent=t.about;document.getElementById('qcWarning').textContent=t.warning;document.getElementById('integrityDownloadBtn').textContent=t.download;
+    if(!finalOutputReport){box.textContent=t.pending;return;}
+    const r=finalOutputReport,i=r.integrity;
+    if(r.status==='silent-or-too-short'){box.textContent=t.empty;return;}
+    box.textContent=`${r.status} | LUFS ${Number(r.outputLufs).toFixed(2)} | True Peak ${Number(r.truePeakDbtp).toFixed(2)} dBTP\nStereo correlation: ${i.correlation===null?'n/a':i.correlation.toFixed(3)} | Mono power change: ${i.monoPowerChangeDb===null?'n/a':i.monoPowerChangeDb.toFixed(2)} dB\nCrest factor: ${i.crestFactorDb===null?'n/a':i.crestFactorDb.toFixed(2)} dB | Negative-correlation windows: ${i.negativeCorrelationWindows}/${i.activeWindows}\nClipped frames: ${i.clippedFrames} | Invalid samples: ${i.nonfiniteSamples} | Click candidates: ${i.isolatedClickCandidatesFirst100.length}\n${t.note}`;
+  }
+
 
   // pushes louder without a fixed LUFS target — used by the "Louder" option
   // in the Loudness Target step.
@@ -4332,6 +4386,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   }
 
   async function loadFile(file){
+    finalOutputReport=null; showIntegrityReport();
     if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
     const arrBuf = await file.arrayBuffer();
     audioBuffer = await audioCtx.decodeAudioData(arrBuf.slice(0));
@@ -6769,51 +6824,82 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   // 4x the sample rate, letting the browser's own resampler reconstruct
   // inter-sample peaks that a plain sample-peak read would miss.
   async function estimateTruePeak(buf){
-    const factor = 4;
-    const oc = new OfflineAudioContext(buf.numberOfChannels, buf.length*factor, buf.sampleRate*factor);
-    const src = oc.createBufferSource(); src.buffer = buf; src.connect(oc.destination); src.start(0);
-    const rendered = await oc.startRendering();
-    let peak = 0;
-    for(let c=0;c<rendered.numberOfChannels;c++){
-      const d = rendered.getChannelData(c);
-      for(let i=0;i<d.length;i++){ const a = Math.abs(d[i]); if(a>peak) peak = a; }
-    }
-    return 20*Math.log10(peak||1e-9);
-  }
-
-  // Simplified ITU-R BS.1770 integrated loudness: K-weighting (high-shelf +
-  // RLB high-pass approximation) -> 400ms blocks -> absolute + relative gating.
-  async function estimateIntegratedLufs(buf){
-    const oc = new OfflineAudioContext(buf.numberOfChannels, buf.length, buf.sampleRate);
-    const src = oc.createBufferSource(); src.buffer = buf;
-    const shelf = oc.createBiquadFilter(); shelf.type='highshelf'; shelf.frequency.value=1500; shelf.gain.value=4;
-    const hp = oc.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=38; hp.Q.value=0.5;
-    src.connect(shelf); shelf.connect(hp); hp.connect(oc.destination);
-    src.start(0);
-    const weighted = await oc.startRendering();
-
-    const blockLen = Math.floor(0.4*buf.sampleRate);
-    const hop = Math.floor(blockLen*0.25);
-    const chans = []; for(let c=0;c<weighted.numberOfChannels;c++) chans.push(weighted.getChannelData(c));
-    const blockLoudness = [];
-    for(let start=0; start+blockLen<=chans[0].length; start+=hop){
-      let sum = 0;
-      for(let c=0;c<chans.length;c++){
-        let s=0; for(let i=start;i<start+blockLen;i++) s += chans[c][i]*chans[c][i];
-        sum += s/blockLen;
+    // Four-phase, 48-tap Blackman-windowed sinc reconstruction. Independent of
+    // the browser resampler (which can suppress high-frequency intersample peaks).
+    // This is an estimate, not a certified BS.1770 meter. Validate encoded files.
+    const radius=24,phases=[];
+    for(const fraction of [.25,.5,.75]){
+      const weights=[];let sum=0;
+      for(let j=1-radius;j<=radius;j++){
+        const x=j-fraction;
+        const sinc=Math.abs(x)<1e-12?1:Math.sin(Math.PI*x)/(Math.PI*x);
+        const window=.42+.5*Math.cos(Math.PI*x/radius)+.08*Math.cos(2*Math.PI*x/radius);
+        const w=sinc*window;weights.push(w);sum+=w;
       }
-      const loudness = -0.691 + 10*Math.log10(sum||1e-12);
-      blockLoudness.push(loudness);
+      phases.push(weights.map(w=>w/sum));
     }
-    if(blockLoudness.length === 0) return -70;
-    const passAbs = blockLoudness.filter(l => l > -70);
-    if(passAbs.length === 0) return -70;
-    const meanAbs = passAbs.reduce((a,b)=>a+b,0)/passAbs.length;
-    const relThresh = meanAbs - 10;
-    const passRel = passAbs.filter(l => l > relThresh);
-    const finalSet = passRel.length ? passRel : passAbs;
-    return finalSet.reduce((a,b)=>a+b,0)/finalSet.length;
+    const bound=Math.max(...phases.map(a=>a.reduce((s,x)=>s+Math.abs(x),0)));
+    let peak=0;
+    for(let c=0;c<buf.numberOfChannels;c++){
+      const d=buf.getChannelData(c);
+      for(let i=0;i<d.length;i++){if(!Number.isFinite(d[i]))throw new Error('Non-finite audio sample');peak=Math.max(peak,Math.abs(d[i]));}
+      for(let first=0;first<d.length;first+=256){
+        const end=Math.min(d.length,first+256);let local=0;
+        for(let j=Math.max(0,first-radius);j<Math.min(d.length,end+radius);j++)local=Math.max(local,Math.abs(d[j]));
+        // A strict absolute-coefficient bound skips blocks that cannot set a peak.
+        if(local*bound<=peak)continue;
+        for(let i=first;i<end;i++)for(const weights of phases){
+          let value=0;
+          for(let k=0;k<weights.length;k++){const j=i+k+1-radius;if(j>=0&&j<d.length)value+=d[j]*weights[k];}
+          peak=Math.max(peak,Math.abs(value));
+        }
+      }
+    }
+    return peak>0?20*Math.log10(peak):-Infinity;
   }
+
+
+  async function estimateIntegratedLufs(buf){
+    if(buf.numberOfChannels > 2) throw new Error('This loudness meter supports mono/stereo only.');
+    if(buf.duration < 0.4) return -Infinity;
+    // BS.1770 K weighting: shelf + RLB. De Man's rate-dependent coefficients.
+    // Filter equations: https://github.com/csteinmetz1/pyloudnorm (MIT).
+    const rate=buf.sampleRate, K=Math.tan(Math.PI*1681.974450955533/rate);
+    const Q=0.7071752369554196, Vh=Math.pow(10,3.999843853973347/20), Vb=Math.pow(Vh,0.4996667741545416);
+    const a0=1+K/Q+K*K;
+    const sb=[(Vh+Vb*K/Q+K*K)/a0,2*(K*K-Vh)/a0,(Vh-Vb*K/Q+K*K)/a0];
+    const sa=[1,2*(K*K-1)/a0,(1-K/Q+K*K)/a0];
+    const H=Math.tan(Math.PI*38.13547087602444/rate), hQ=0.5003270373238773, h0=1+H/hQ+H*H;
+    const ha=[1,2*(H*H-1)/h0,(1-H/hQ+H*H)/h0];
+    for(let c=0;c<buf.numberOfChannels;c++){
+      const d=buf.getChannelData(c);for(let i=0;i<d.length;i++)if(!Number.isFinite(d[i]))throw new Error('Non-finite audio sample');
+    }
+    const oc=new OfflineAudioContext(buf.numberOfChannels,buf.length,rate);
+    const src=oc.createBufferSource();src.buffer=buf;
+    const shelf=oc.createIIRFilter(sb,sa),hp=oc.createIIRFilter([1,-2,1],ha);
+    src.connect(shelf);shelf.connect(hp);hp.connect(oc.destination);src.start();
+    const weighted=await oc.startRendering();
+    const block=Math.round(.4*rate),hop=Math.round(.1*rate),count=Math.floor((buf.length-block)/hop)+1;
+    const energy=new Float64Array(count);
+    for(let c=0;c<weighted.numberOfChannels;c++){
+      const d=weighted.getChannelData(c);let sum=0;
+      for(let j=0;j<block;j++)sum+=d[j]*d[j];
+      energy[0]+=sum/block;
+      for(let k=1;k<count;k++){
+        const old=(k-1)*hop;
+        for(let j=old;j<old+hop;j++)sum-=d[j]*d[j];
+        for(let j=old+block;j<old+block+hop;j++)sum+=d[j]*d[j];
+        energy[k]+=Math.max(0,sum)/block;
+      }
+    }
+    const absEnergy=Math.pow(10,(-70+.691)/10);
+    let sum=0,n=0;for(const e of energy)if(e>absEnergy){sum+=e;n++;}
+    if(!n)return -Infinity;
+    const threshold=Math.max(absEnergy,(sum/n)*.1);
+    sum=0;n=0;for(const e of energy)if(e>threshold){sum+=e;n++;}
+    return n ? -.691+10*Math.log10(sum/n) : -Infinity;
+  }
+
 
   // ---- Reference Track A/B — drop a reference (a commercial release, a
   // favorite mix) and compare it against the Master at matched loudness, so
@@ -7050,11 +7136,16 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     const btn = document.getElementById('finalMasterBtn');
     const prevLabel = btn.textContent;
     btn.disabled = true; btn.textContent = T[currentLang].calibrating;
-    if(selectedLoudnessTarget === 'louder') await pushLouder();
-    else await calibrateToTarget(parseFloat(selectedLoudnessTarget));
-    btn.disabled = false; btn.textContent = prevLabel;
-    logEvent('Render', `Final Mastering (target: ${selectedLoudnessTarget === 'louder' ? 'Louder' : selectedLoudnessTarget + ' LUFS'})`, snapshotParams());
-    renderEnvelopeView(); // Final Mastering re-renders the master too — keep the envelope check in sync
+    try {
+      if(selectedLoudnessTarget === 'louder') { finalOutputReport=null; showIntegrityReport(); await pushLouder(); }
+      else await calibrateToTarget(parseFloat(selectedLoudnessTarget));
+      logEvent('Render', `Final Mastering (target: ${selectedLoudnessTarget === 'louder' ? 'Louder' : selectedLoudnessTarget + ' LUFS'})`, snapshotParams());
+      renderEnvelopeView();
+    } catch(error) {
+      const warning=document.getElementById('calibrateWarning');warning.textContent=error.message;warning.classList.remove('hidden');
+      logEvent('Error','Final Mastering: '+error.message,snapshotParams());
+    } finally { btn.disabled=false;btn.textContent=prevLabel; }
+     // Final Mastering re-renders the master too — keep the envelope check in sync
   });
 
   // ---- format tabs (WAV / MP3) ----
@@ -7745,7 +7836,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       platNoteTiktok: 'unofficial, varies', platNoteCd: 'no real ceiling — loud-master reference',
       platTruePeakWarn: 'Above the -1dBTP safety margin — lossy transcoding (MP3/AAC) on any platform could clip.',
       platformListEmpty: 'Run Mastering to check this master against platform loudness targets.',
-      lufsApproxNote: 'Integrated LUFS uses a simplified ITU-R BS.1770 K-weighting approximation. True Peak is estimated via 4x oversampling. Treat both as close estimates, not certified measurements.',
+      lufsApproxNote: 'Integrated LUFS uses BS.1770 energy averaging and gating. True Peak uses 4-phase sinc reconstruction. Independently verify final exports; this is not a certified meter.',
       loudnessTargetNote: 'Pick a preset above and Run Mastering first to hear the tonal character. Then pick a target here and hit Final Mastering — it nudges Makeup Gain (or Ratio/Ceiling for Louder) to land close to that loudness, re-renders, and updates the summary above.',
       suggestionListEmpty: 'Run Mastering to get concrete suggestions for reaching a streaming-safe loudness, or pushing louder without breaking balance.',
       processingNoteHtml: 'All processing happens in your browser. Your file is never sent to a server. MP3 encoding is powered by the <a href="https://lame.sourceforge.net" target="_blank" rel="noopener" style="color:var(--accent);">LAME</a> encoder (lamejs port, LGPL-3.0), bundled directly in this file — no external requests needed.',
@@ -8008,7 +8099,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
       platNoteTiktok: '비공식, 편차 있음', platNoteCd: '실제 천장 없음 — 라우드 마스터 기준',
       platTruePeakWarn: '-1dBTP 안전선을 넘었어요 — 어느 플랫폼에서든 손실 압축(MP3/AAC) 변환 시 클리핑될 수 있어요.',
       platformListEmpty: 'Run Mastering을 눌러서 이 마스터를 플랫폼별 라우드니스 타겟과 비교해보세요.',
-      lufsApproxNote: 'Integrated LUFS는 ITU-R BS.1770 K-weighting을 단순화해서 근사한 값이에요. True Peak은 4배 오버샘플링으로 추정합니다. 둘 다 인증된 측정값이 아니라 근사치로 봐주세요.',
+      lufsApproxNote: 'Integrated LUFS는 BS.1770 에너지 평균과 게이팅으로 계산합니다. True Peak은 4위상 sinc 보간 추정값입니다. 최종 파일은 독립 측정으로 검증하세요. 인증 계측기는 아닙니다.',
       loudnessTargetNote: '위에서 프리셋 고르고 먼저 Run Mastering으로 톤 캐릭터를 들어보세요. 그다음 여기서 타겟을 고르고 Final Mastering을 누르면 — Makeup Gain(Louder는 Ratio/Ceiling도)을 살짝 조정해서 그 라우드니스에 가깝게 맞추고, 다시 렌더링하고, 위 요약을 갱신해요.',
       suggestionListEmpty: 'Run Mastering을 눌러서 스트리밍에 안전한 라우드니스로 가는 법, 또는 밸런스를 안 깨고 더 크게 만드는 법에 대한 구체적인 제안을 받아보세요.',
       processingNoteHtml: '모든 처리는 브라우저 안에서 이뤄져요. 파일이 서버로 전송되는 일은 없습니다. MP3 인코딩은 <a href="https://lame.sourceforge.net" target="_blank" rel="noopener" style="color:var(--accent);">LAME</a> 인코더(lamejs 포팅, LGPL-3.0)로 처리되고, 이 파일 안에 그대로 번들돼있어서 외부 요청이 필요 없어요.',
@@ -8968,7 +9059,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     document.getElementById('langMenu').classList.toggle('open');
   });
   document.querySelectorAll('.lang-opt').forEach(opt=>{
-    opt.addEventListener('click', ()=> applyLanguage(opt.dataset.lang));
+    opt.addEventListener('click', ()=> { applyLanguage(opt.dataset.lang); showIntegrityReport(); });
   });
   document.addEventListener('click', e=>{
     const wrap = document.getElementById('langBtn').closest('.lang-select-wrap');
@@ -8988,6 +9079,13 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
     return 'en';
   }
   applyLanguage(detectDefaultLang());
+  showIntegrityReport();
+
+  document.getElementById('integrityDownloadBtn').addEventListener('click',()=>{
+    if(!finalOutputReport)return;
+    const url=URL.createObjectURL(new Blob([JSON.stringify(finalOutputReport,null,2)],{type:'application/json'}));
+    const a=document.createElement('a');a.href=url;a.download='mastering-output-qc.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  });
 })();
 </script>
 </body>
